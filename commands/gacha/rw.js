@@ -69,21 +69,25 @@ async function buscarImagenDelirius(tag) {
 export default {
   command: ['rollwaifu', 'rw', 'roll'],
   category: 'gacha',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     const userId = m.sender;
     const chatId = m.chat;
     cleanOldLocks();
+    
     if (rollLocks.has(userId)) {
       const lockTime = rollLocks.get(userId);
       const now = Date.now();
       if (now - lockTime < 15000) return;
       rollLocks.delete(userId);
     }
+    
     const chats = global.db.data.chats;
     const chat = chats[chatId];
+    
     if (chat.adminonly || !chat.gacha) {
-      return m.reply(`ꕥ Los comandos de *Gacha* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}gacha on*`);
+      return m.reply(`📻 *¡Interferencia en la señal!* Los juegos de azar están prohibidos aquí. ¡Qué falta de clase! Un administrador puede activarlos con: *${usedPrefix}gacha on*`);
     }
+    
     if (!chat.users) chat.users = {};
     if (!chat.users[userId]) chat.users[userId] = {};
     if (!chat.characters) chat.characters = {};
@@ -91,6 +95,7 @@ export default {
     const me = chat.users[userId];
     const now = Date.now();
     const cooldown = 15 * 60 * 1000;
+    
     if (me.lastRoll && now < me.lastRoll) {
       const r = Math.ceil((me.lastRoll - now) / 1000);
       const min = Math.floor(r / 60);
@@ -98,8 +103,9 @@ export default {
       let timeText = '';
       if (min > 0) timeText += `${min} minuto${min !== 1 ? 's' : ''} `;
       if (sec > 0 || timeText === '') timeText += `${sec} segundo${sec !== 1 ? 's' : ''}`;
-      return m.reply(`ꕥ Debes esperar *${timeText.trim()}* para usar *${usedPrefix + 'rw'}* de nuevo.`);
+      return m.reply(`📻 *¡Paciencia, querido!* Mi transmisor necesita enfriarse. Espera *${timeText.trim()}* para el siguiente espectáculo. ♪`);
     }
+    
     rollLocks.set(userId, now);
     try {
       const db = await loadCharacters();
@@ -110,28 +116,42 @@ export default {
       const baseTag = formatTag(selected.tags?.[0] || '');
       const mediaList = await buscarImagenDelirius(baseTag);
       const media = mediaList[Math.floor(Math.random() * mediaList.length)];
+      
       if (!media) {
         rollLocks.delete(userId);
-        return m.reply(`ꕥ No se encontró imágenes para el personaje *${selected.name}*.`);
+        return m.reply(`📻 *¡Vaya, qué vacío!* Mis sombras no encontraron retratos de *${selected.name}*. ¡Qué decepción!`);
       }
+      
       if (!chat.characters[selected.id]) chat.characters[selected.id] = {};
       const record = chat.characters[selected.id];
       const globalRec = global.db.data.characters?.[selected.id] || {};
+      
       record.name = String(selected.name || 'Sin nombre');
       record.value = typeof globalRec.value === 'number' ? globalRec.value : Number(selected.value) || 100;
       record.votes = Number(record.votes || globalRec.votes || 0);
       record.reservedBy = userId;
       record.reservedUntil = now + 20000;
       record.expiresAt = now + 60000;
-      const owner = typeof record?.user === 'string' && record.user.length ? (global.db.data.users?.[record.user]?.name || record.user.split('@')[0]).trim() : 'desconocido';
-      const msg = `❀ Nombre » *${record.name}*\n⚥ Género » *${selected.gender || 'Desconocido'}*\n✰ Valor » *${record.value.toLocaleString()}*\n♡ Estado » *${record.user ? `Reclamado por ${owner}` : 'Libre'}*\n❖ Fuente » *${source}*`;
-      const imgRes = await axios.get(media, { responseType: 'arraybuffer', timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': getRefererForUrl(media) } });
+      
+      const owner = typeof record?.user === 'string' && record.user.length ? (global.db.data.users?.[record.user]?.name || record.user.split('@')[0]).trim() : 'Nadie aún';
+      
+      const msg = `📻 🎙️  *𝗣𝗥𝗘𝗦𝗘𝗡𝗧𝗔𝗖𝗜𝗢𝗡 𝗘𝗦𝗧𝗘𝗟𝗔𝗥* 🎙️ 📻\n\n` +
+        `🎭 ➔ *Identidad* › *${record.name}*\n` +
+        `⚥ ➔ *Esencia* › *${selected.gender || 'Desconocido'}*\n` +
+        `✰ ➔ *Valor del Alma* › *${record.value.toLocaleString()}*\n` +
+        `♡ ➔ *Contrato* › *${record.user ? `Poseído por ${owner}` : '¡Disponible para un trato!'}*\n` +
+        `🎞️ ➔ *Origen* › *${source}*\n\n` +
+        `*¡Sonríe, el espectáculo apenas comienza!*`;
+
+      const imgRes = await axios.get(media, { responseType: 'arraybuffer', timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': getRefererForUrl(media) } });
       const buffer = Buffer.from(imgRes.data);
+      
       const sent = await client.sendMessage(chatId, { image: buffer, caption: msg }, { quoted: m });
       chat.rolls[sent.key.id] = { id, name: record.name, expiresAt: record.expiresAt, reservedBy: userId, reservedUntil: record.reservedUntil };
       me.lastRoll = now + cooldown;
+      
     } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);
+      await m.reply(`📻 *¡CRASH!* Estática en la señal... \n> [Error de sintonía: *${e.message}*]\n¡El show debe continuar! ♪`);
     } finally {
       rollLocks.delete(userId);
     }
