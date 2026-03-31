@@ -3,32 +3,35 @@ import fetch from 'node-fetch'
 export default {
   command: ['fb', 'facebook'],
   category: 'downloader',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     if (!args[0]) {
-      return m.reply('《✧》 Por favor, Ingrese un enlace de Facebook.')
+      return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito un enlace de Facebook para empezar la función, querido. ♪')
     }
     if (!args[0].match(/facebook\.com|fb\.watch|video\.fb\.com/)) {
-      return m.reply('《✧》 El enlace es invalido, envía un link de Facebook válido')
+      return m.reply('📻 *¡Vaya interferencia!* Ese enlace no tiene la clase necesaria. ¡Asegúrate de que sea un link de Facebook válido! ¡Jajaja!')
     }
     try {
       const data = await getFacebookMedia(args[0])
-      if (!data) return m.reply('《✧》 No se pudo obtener el contenido.')
+      if (!data) return m.reply('🍎 *¡Qué decepción!* Mis sombras no han podido extraer ese bocado visual. ¿Quizás la señal está... muerta?')
+      
       const caption =
-        `ㅤ۟∩　ׅ　★　ׅ　🅕𝖡 🅓ownload　ׄᰙ　\n\n` +
-        `${data.title ? `𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Titulo* › ${data.title}\n` : ''}` +
-        `${data.resolution ? `𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Resolución* › ${data.resolution}\n` : ''}` +
-        `${data.format ? `𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Formato* › ${data.format}\n` : ''}` +
-        `${data.duration ? `𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Duración* › ${data.duration}\n` : ''}` +
-        `𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Enlace* › ${args[0]}`
+        `📻 🎙️  *𝗧𝗥𝗔𝗡𝗦𝗠𝗜𝗦𝗜𝗢𝗡 𝗗𝗘 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞* 🎙️ 📻\n\n` +
+        `${data.title ? `🎞️ ➔ *Espectáculo* › ${data.title}\n` : ''}` +
+        `${data.resolution ? `📺 ➔ *Definición* › ${data.resolution}\n` : ''}` +
+        `${data.format ? `🎞️ ➔ *Celuloide* › ${data.format}\n` : ''}` +
+        `${data.duration ? `⏳ ➔ *Duración* › ${data.duration}\n` : ''}` +
+        `🎵 ➔ *Frecuencia* › ${args[0]}\n\n` +
+        `*¡El entretenimiento es la moneda del alma!*`
+
       if (data.type === 'video') {
-        await client.sendMessage(m.chat, { video: { url: data.url }, caption, mimetype: 'video/mp4', fileName: 'fb.mp4' }, { quoted: m })
+        await client.sendMessage(m.chat, { video: { url: data.url }, caption, mimetype: 'video/mp4', fileName: 'radio_demon_fb.mp4' }, { quoted: m })
       } else if (data.type === 'image') {
         await client.sendMessage(m.chat, { image: { url: data.url }, caption }, { quoted: m })
       } else {
-        throw new Error('Contenido no soportado.')
+        throw new Error('Contenido aburrido... ¡Digo, no soportado!')
       }
     } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
     }
   }
 }
