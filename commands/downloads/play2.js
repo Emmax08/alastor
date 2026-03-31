@@ -7,15 +7,16 @@ const isYTUrl = (url) => /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i
 export default {
   command: ['play2', 'mp4', 'ytmp4', 'ytvideo', 'playvideo'],
   category: 'downloader',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     try {
       if (!args[0]) {
-        return m.reply('《✧》Por favor, menciona el nombre o URL del video que deseas descargar')
+        return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito el nombre o la URL de ese espectáculo visual para empezar la función. ♪')
       }
       const text = args.join(' ')
       const videoMatch = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([a-zA-Z0-9_-]{11})/)
       const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
       let url = query, title = null, thumbBuffer = null
+      
       try {
         const search = await yts(query)
         if (search.all.length) {
@@ -26,26 +27,37 @@ export default {
             thumbBuffer = await getBuffer(videoInfo.image)
             const vistas = (videoInfo.views || 0).toLocaleString()
             const canal = videoInfo.author?.name || 'Desconocido'
-            const infoMessage = `➩ Descargando › *${title}*
-
-> ❖ Canal › *${canal}*
-> ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
-> ❀ Vistas › *${vistas}*
-> ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
-> ❒ Enlace › *${url}*`
+            
+            const infoMessage = `📻 🎙️  *𝗘𝗦𝗣𝗘𝗖𝗧𝗔𝗖𝗨𝗟𝗢 𝗩𝗜𝗦𝗨𝗔𝗟* 🎙️ 📻\n\n` +
+              `🎞️ ➔ *Título* › *${title}*\n` +
+              `🎩 ➔ *Productor* › *${canal}*\n` +
+              `⏳ ➔ *Duración* › *${videoInfo.timestamp || 'Desconocido'}*\n` +
+              `👁️ ➔ *Audiencia* › *${vistas}*\n` +
+              `📅 ➔ *Emisión* › *${videoInfo.ago || 'Desconocido'}*\n` +
+              `🔗 ➔ *Frecuencia* › *${url}*\n\n` +
+              `*¡Prepárate para la función, querido!*`
+              
             await client.sendMessage(m.chat, { image: thumbBuffer, caption: infoMessage }, { quoted: m })
           }
         }
       } catch (err) {
+        // Silencio en las sombras...
       }
+
       const video = await getVideoFromApis(url)
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, intenta más tarde.')
+        return m.reply('🍎 *¡Vaya interferencia!* No he podido capturar el celuloide. ¡Qué falta de clase! Intenta más tarde.')
       }
+
       const videoBuffer = await getBuffer(video.url)
-      await client.sendMessage(m.chat, { video: videoBuffer, fileName: `${title || 'video'}.mp4`, mimetype: 'video/mp4' }, { quoted: m })
+      await client.sendMessage(m.chat, { 
+        video: videoBuffer, 
+        fileName: `${title || 'video'}.mp4`, 
+        mimetype: 'video/mp4' 
+      }, { quoted: m })
+
     } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
     }
   }
 }
