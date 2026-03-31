@@ -3,36 +3,39 @@ import fetch from 'node-fetch'
 export default {
   command: ['instagram', 'ig'],
   category: 'downloader',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     if (!args[0]) {
-      return m.reply('《✧》 Por favor, ingrese un enlace de Instagram.')
+      return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito un enlace de Instagram para empezar la función, querido amigo. ♪')
     }
     if (!args[0].match(/instagram\.com\/(p|reel|share|tv|stories)\//)) {
-      return m.reply('《✧》 El enlace no parece *válido*. Asegúrate de que sea de *Instagram*.')
+      return m.reply('📻 *¡Vaya interferencia!* Ese enlace no parece tener la clase de *Instagram*. ¡Asegúrate de que sea el correcto! ¡Jajaja!')
     }
     try {
       const data = await getInstagramMedia(args[0])
-      if (!data) return m.reply('《✧》 No se pudo obtener el contenido.')
+      if (!data) return m.reply('🍎 *¡Qué decepción!* Mis sombras no han podido extraer ese bocado visual. ¿Quizás la señal está... muerta?')
+      
       const caption =
-        `ㅤ۟∩　ׅ　★ ໌　ׅ　🅘𝖦 🅓ownload　ׄᰙ\n\n` +
-        `${data.title ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Usuario* › ${data.title}\n` : ''}` +
-        `${data.caption ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Descripción* › ${data.caption}\n` : ''}` +
-        `${data.like ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Likes* › ${data.like}\n` : ''}` +
-        `${data.comment ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Comentarios* › ${data.comment}\n` : ''}` +
-        `${data.views ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Vistas* › ${data.views}\n` : ''}` +
-        `${data.duration ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Duración* › ${data.duration}\n` : ''}` +
-        `${data.resolution ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Resolución* › ${data.resolution}\n` : ''}` +
-        `${data.format ? `𖣣ֶㅤ֯⌗ ❀  ⬭ *Formato* › ${data.format}\n` : ''}` +
-        `𖣣ֶㅤ֯⌗ ❀  ⬭ *Enlace* › ${args[0]}`
+        `📻 🎙️  *𝗧𝗥𝗔𝗡𝗦𝗠𝗜𝗦𝗜𝗢𝗡 𝗗𝗘 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠* 🎙️ 📻\n\n` +
+        `${data.title ? `🎩 ➔ *Sujeto* › ${data.title}\n` : ''}` +
+        `${data.caption ? `📜 ➔ *Crónica* › ${data.caption}\n` : ''}` +
+        `${data.like ? `❤️ ➔ *Aplausos* › ${data.like}\n` : ''}` +
+        `${data.comment ? `💬 ➔ *Críticas* › ${data.comment}\n` : ''}` +
+        `${data.views ? `👁️ ➔ *Audiencia* › ${data.views}\n` : ''}` +
+        `${data.duration ? `⏳ ➔ *Duración* › ${data.duration}\n` : ''}` +
+        `${data.resolution ? `📺 ➔ *Definición* › ${data.resolution}\n` : ''}` +
+        `${data.format ? `🎞️ ➔ *Celuloide* › ${data.format}\n` : ''}` +
+        `🎵 ➔ *Frecuencia* › ${args[0]}\n\n` +
+        `*¡El entretenimiento es la moneda del alma!*`
+
       if (data.type === 'video') {
-        await client.sendMessage(m.chat, { video: { url: data.url }, caption, mimetype: 'video/mp4', fileName: 'ig.mp4' }, { quoted: m })
+        await client.sendMessage(m.chat, { video: { url: data.url }, caption, mimetype: 'video/mp4', fileName: 'radio_demon_ig.mp4' }, { quoted: m })
       } else if (data.type === 'image') {
         await client.sendMessage(m.chat, { image: { url: data.url }, caption }, { quoted: m })
       } else {
-        throw new Error('Contenido no soportado.')
+        throw new Error('Contenido aburrido... ¡Digo, no soportado!')
       }
     } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, querido! ¡Estamos trabajando en ello! ♪`)
     }
   }
 }
