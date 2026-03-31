@@ -4,33 +4,45 @@ import { getBuffer } from "../../lib/message.js"
 export default {
   command: ['apk', 'aptoide', 'apkdl'],
   category: 'download',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     if (!args || !args.length) {
-      return m.reply('《✧》 Por favor, ingresa el nombre de la aplicación.')
+      return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito el nombre de una aplicación para empezar la función, querido. ♪')
     }
     const query = args.join(' ').trim()
     try {
       const searchA = await search(query)
       if (!searchA || searchA.length === 0) {
-        return m.reply('《✧》 No se encontraron resultados.')
+        return m.reply('🍎 *¡Qué decepción!* Mis sombras no han encontrado ese artefacto en este rincón del infierno.')
       }
+      
       const apkInfo = await download(searchA[0].id)
       if (!apkInfo) {
-        return m.reply('《✧》 No se pudo obtener la información de la aplicación.')
+        return m.reply('📻 *¡Vaya interferencia!* No he podido extraer la información de esa aplicación. ¿Quizás el archivo está... muerto?')
       }
+
       const { name, package: id, size, icon, dllink: downloadUrl, lastup } = apkInfo
-      const caption = `✰ ᩧ　𓈒　ׄ　Aptoide 　ׅ　✿\n\n` +
-        `➩ *Nombre ›* ${name}\n` +
-        `❖ *Paquete ›* ${id}\n` +
-        `✿ *Última actualización ›* ${lastup}\n` +
-        `☆ *Tamaño ›* ${size}`
+      
+      const caption = `📻 🎙️  *𝗘𝗡𝗧𝗥𝗘𝗚𝗔 𝗗𝗘 𝗔𝗣𝗟𝗜𝗖𝗔𝗖𝗜𝗢𝗡* 🎙️ 📻\n\n` +
+        `📦 ➔ *Artefacto* › ${name}\n` +
+        `🆔 ➔ *Paquete* › ${id}\n` +
+        `📅 ➔ *Última Emisión* › ${lastup}\n` +
+        `⚖️ ➔ *Peso del Alma* › ${size}\n\n` +
+        `*¡El entretenimiento es la moneda del alma!*`
+
       const sizeBytes = parseSize(size)
       if (sizeBytes > 524288000) {
-        return m.reply(`《✧》 El archivo es demasiado grande (${size}).\n> Descárgalo directamente desde aquí:\n${downloadUrl}`)
+        return m.reply(`📻 *¡Demasiado pesado!* Ese archivo es un bocado demasiado grande para mis sombras (${size}).\n\n> *Descárgalo tú mismo aquí:* \n${downloadUrl}`)
       }
-      await client.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'application/vnd.android.package-archive', fileName: `${name}.apk`, caption }, { quoted: m })
+
+      await client.sendMessage(m.chat, { 
+        document: { url: downloadUrl }, 
+        mimetype: 'application/vnd.android.package-archive', 
+        fileName: `${name}.apk`, 
+        caption 
+      }, { quoted: m })
+
      } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
     }
   },
 }
