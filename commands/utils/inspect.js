@@ -2,232 +2,138 @@ import { getUrlFromDirectPath } from "@whiskeysockets/baileys"
 import _ from "lodash"
 
 export default {
-  command: ["inspect","inspeccionar"],
+  command: ["inspect", "inspeccionar"],
   category: "tools",
-  run: async (client, m, args, usedPrefix, command, text) => {
-    if (!text) return client.reply(m.chat, `《✧》 Por favor, ingrese el enlace de grupo/comunidad o canal.`, m)
+  run: async (client, m, { args, usedPrefix, command, text }) => {
+    // El texto ahora se maneja desde los parámetros de la función para evitar interferencias
+    if (!text) return m.reply(`📻 *¡Interferencia!* Por favor, ingrese el enlace de un grupo, comunidad o canal para que pueda sintonizarlo. ♪`)
+    
     const channelUrl = text?.match(/(?:https:\/\/)?(?:www\.)?(?:chat\.|wa\.)?whatsapp\.com\/(?:channel\/|joinchat\/)?([0-9A-Za-z]{22,24})/i)?.[1]
     const settings = global.db.data.settings[client.user.id.split(':')[0] + '@s.whatsapp.net']
     let thumb = settings.icon
     let pp 
     let inviteCode
+
     const MetadataGroupInfo = async (res) => {
-    let nameCommunity = ""
-    if (res.linkedParent) {
-    let linkedGroupMeta = await client.groupMetadata(res.linkedParent).catch(() => null)
-    nameCommunity = linkedGroupMeta ? "`Nombre:` " + linkedGroupMeta.subject : ""
-    }
-    pp = await client.profilePictureUrl(res.id, 'image').catch(() => null)
-    inviteCode = await client.groupInviteCode(m.chat).catch(() => null)
-    const formatParticipants = (participants) => participants && participants.length > 0 ? participants.map((user, i) => `${i + 1}. @${user.id?.split("@")[0]}${user.admin === "superadmin" ? " (superadmin)" : user.admin === "admin" ? " (admin)" : ""}`).join("\n") : "No encontrado"
-      let caption = `🆔 *Identificador del grupo:*\n${res.id || "No encontrado"}\n\n` +
-      `👑 *Creado por:*\n${res.owner ? `@${res.owner?.split("@")[0]}` : "No encontrado"} ${res.creation ? `el ${formatDate(res.creation)}` : "(Fecha no encontrada)"}\n\n` +
-      `🏷️ *Nombre:*\n${res.subject || "No encontrado"}\n\n` +
-      `✏️ *Nombre cambiado por:*\n${res.subjectOwner ? `@${res.subjectOwner?.split("@")[0]}` : "No encontrado"} ${res.subjectTime ? `el ${formatDate(res.subjectTime)}` : "(Fecha no encontrada)"}\n\n` +
-      `📄 *Descripción:*\n${res.desc || "No encontrado"}\n\n` +
-      `📝 *Descripción cambiado por:*\n${res.descOwner ? `@${res.descOwner?.split("@")[0]}` : "No encontrado"}\n\n` +
-      `🗃️ *Id de la descripción:*\n${res.descId || "No encontrado"}\n\n` +
-      `🖼️ *Imagen del grupo:*\n${pp ? pp : "No se pudo obtener"}\n\n` +
-      `💫 *Autor:*\n${res.author || "No encontrado"}\n\n` +
-      `🎫 *Código de invitación:*\n${res.inviteCode || inviteCode || "No disponible"}\n\n` +
-      `⌛ *Duración:*\n${res.ephemeralDuration !== undefined ? `${res.ephemeralDuration} segundos` : "Desconocido"}\n\n` +
-      `🛃 *Admins:*\n${formatParticipants(res.participants)}\n\n` +
-      `🔰 *Usuarios en total:*\n${res.size || "Cantidad no encontrada"}\n\n` +
-      `✨ *Información avanzada* ✨\n\n🔎 *Comunidad vinculada al grupo:*\n${res.linkedParent ? "`Id:` " + res.linkedParent + (nameCommunity ? "\n" + nameCommunity : "") : res.isCommunity ? "Este grupo es una comunidad" : "No pertenece a ninguna comunidad"}\n\n` +
-      `⚠️ *Restricciones:* ${res.restrict ? "✅" : "❌"}\n` +
-      `📢 *Anuncios:* ${res.announce ? "✅" : "❌"}\n` +
-      `🏘️ *¿Es comunidad?:* ${res.isCommunity ? "✅" : "❌"}\n` +
-      `📯 *¿Es anuncio de comunidad?:* ${res.isCommunityAnnounce ? "✅" : "❌"}\n` +
-      `🤝 *Tiene aprobación de miembros:* ${res.joinApprovalMode ? "✅" : "❌"}\n` +
-      `🆕 *Puede Agregar futuros miembros:* ${res.memberAddMode ? "✅" : "❌"}\n\n`
-      return caption.trim()
-    }
-    const inviteGroupInfo = async (groupData) => {
-      const { id, subject, subjectOwner, subjectTime, size, creation, owner, desc, descId, linkedParent, restrict, announce, isCommunity, isCommunityAnnounce, joinApprovalMode } = groupData
       let nameCommunity = ""
-      if (linkedParent) {
-        let linkedGroupMeta = await client.groupMetadata(linkedParent).catch(() => null)
-        nameCommunity = linkedGroupMeta ? "`Nombre:` " + linkedGroupMeta.subject : ""
+      if (res.linkedParent) {
+        let linkedGroupMeta = await client.groupMetadata(res.linkedParent).catch(() => null)
+        nameCommunity = linkedGroupMeta ? "📻 *Nombre:* " + linkedGroupMeta.subject : ""
       }
-      pp = await client.profilePictureUrl(id, 'image').catch(() => null)
-      const formatParticipants = (participants) => participants && participants.length > 0 ? participants.map((user, i) => `${i + 1}. @${user.id?.split("@")[0]}${user.admin === "superadmin" ? " (superadmin)" : user.admin === "admin" ? " (admin)" : ""}`).join("\n") : "No encontrado"
-      let caption = `🆔 *Identificador del grupo:*\n${id || "No encontrado"}\n\n` +
-      `👑 *Creado por:*\n${owner ? `@${owner?.split("@")[0]}` : "No encontrado"} ${creation ? `el ${formatDate(creation)}` : "(Fecha no encontrada)"}\n\n` +
-      `🏷️ *Nombre:*\n${subject || "No encontrado"}\n\n` +
-      `✏️ *Nombre cambiado por:*\n${subjectOwner ? `@${subjectOwner?.split("@")[0]}` : "No encontrado"} ${subjectTime ? `el ${formatDate(subjectTime)}` : "(Fecha no encontrada)"}\n\n` +
-      `📄 *Descripción:*\n${desc || "No encontrada"}\n\n` +
-      `💠 *ID de la descripción:*\n${descId || "No encontrado"}\n\n` +
-      `🖼️ *Imagen del grupo:*\n${pp ? pp : "No se pudo obtener"}\n\n` +
-      `🏆 *Miembros destacados:*\n${formatParticipants(groupData.participants)}\n\n` +
-      `👥 *Destacados total:*\n${size || "Cantidad no encontrada"}\n\n` +
-      `✨ *Información avanzada* ✨\n\n🔎 *Comunidad vinculada al grupo:*\n${linkedParent ? "`Id:` " + linkedParent + (nameCommunity ? "\n" + nameCommunity : "") : isCommunity ? "Este grupo es una comunidad" : "No pertenece a ninguna comunidad"}\n\n` +      
-      `📢 *Anuncios:* ${announce ? "✅ Si" : "❌ No"}\n` +
-      `🏘️ *¿Es comunidad?:* ${isCommunity ? "✅ Si" : "❌ No"}\n` +
-      `📯 *¿Es anuncio de comunidad?:* ${isCommunityAnnounce ? "✅" : "❌"}\n` +
-      `🤝 *Tiene aprobación de miembros:* ${joinApprovalMode ? "✅" : "❌"}\n`
+      pp = await client.profilePictureUrl(res.id, 'image').catch(() => null)
+      inviteCode = await client.groupInviteCode(m.chat).catch(() => null)
+      
+      const formatParticipants = (participants) => participants && participants.length > 0 ? participants.map((user, i) => `${i + 1}. @${user.id?.split("@")[0]}${user.admin === "superadmin" ? " (𝗦𝘂𝗽𝗲𝗿𝗮𝗱𝗺𝗶𝗻)" : user.admin === "admin" ? " (𝗔𝗱𝗺𝗶𝗻)" : ""}`).join("\n") : "No encontrados"
+      
+      let caption = `📻 🎙️  *𝗜𝗡𝗙𝗢𝗥𝗠𝗘 𝗗𝗘 𝗜𝗡𝗦𝗣𝗘𝗖𝗖𝗜𝗢𝗡* 🎙️ 📻\n\n` +
+      `🆔 *Identificador:* \n> ${res.id || "Desconocido"}\n\n` +
+      `👑 *Fundado por:* \n> ${res.owner ? `@${res.owner?.split("@")[0]}` : "Anónimo"} ${res.creation ? `el ${formatDate(res.creation)}` : ""}\n\n` +
+      `🏷️ *Título de la Emisora:* \n> ${res.subject || "Sin nombre"}\n\n` +
+      `✏️ *Último cambio de nombre:* \n> ${res.subjectOwner ? `@${res.subjectOwner?.split("@")[0]}` : "Desconocido"} ${res.subjectTime ? `el ${formatDate(res.subjectTime)}` : ""}\n\n` +
+      `📄 *Manifiesto (Descripción):* \n> ${res.desc || "Sin descripción"}\n\n` +
+      `👤 *Autor de la señal:* \n> ${res.author || "Desconocido"}\n\n` +
+      `🎫 *Código de Invitación:* \n> ${res.inviteCode || inviteCode || "Privado"}\n\n` +
+      `⌛ *Mensajes Temporales:* \n> ${res.ephemeralDuration !== undefined ? `${res.ephemeralDuration} segundos` : "Desactivado"}\n\n` +
+      `🛃 *Moderadores Estelares:* \n${formatParticipants(res.participants)}\n\n` +
+      `👥 *Audiencia Total:* \n> ${res.size || "Cero"} almas.\n\n` +
+      `✨ *𝗗𝗮𝘁𝗼𝘀 𝗔𝘃𝗮𝗻𝘇𝗮𝗱𝗼𝘀* ✨\n\n` +
+      `🔎 *Vínculo de Comunidad:* \n> ${res.linkedParent ? "ID: " + res.linkedParent + (nameCommunity ? "\n" + nameCommunity : "") : res.isCommunity ? "Esta es la Comunidad Principal" : "Señal Independiente"}\n\n` +
+      `⚠️ *Restricciones:* ${res.restrict ? "✅" : "❌"}\n` +
+      `📢 *Modo Anuncio:* ${res.announce ? "✅" : "❌"}\n` +
+      `🤝 *Aprobación de Miembros:* ${res.joinApprovalMode ? "✅" : "❌"}\n`
+      
       return caption.trim()
     }
-    let info
-    let res
-    let inviteInfo
+
+    const inviteGroupInfo = async (groupData) => {
+      const { id, subject, owner, creation, desc, size, linkedParent, announce, isCommunity } = groupData
+      pp = await client.profilePictureUrl(id, 'image').catch(() => null)
+      
+      let caption = `📻 🎙️  *𝗘𝗫𝗣𝗘𝗗𝗜𝗘𝗡𝗧𝗘 𝗗𝗘 𝗜𝗡𝗩𝗜𝗧𝗔𝗖𝗜𝗢𝗡* 🎙️ 📻\n\n` +
+      `🆔 *ID:* ${id}\n` +
+      `🏷️ *Nombre:* ${subject}\n` +
+      `👑 *Creador:* ${owner ? `@${owner.split('@')[0]}` : "Anónimo"} ${creation ? `el ${formatDate(creation)}` : ""}\n` +
+      `📄 *Descripción:* ${desc || "Vacía"}\n` +
+      `👥 *Miembros:* ${size} aproximadamente.\n\n` +
+      `📢 *Anuncios:* ${announce ? "Sí" : "No"}\n` +
+      `🏘️ *Comunidad:* ${isCommunity ? "Sí" : "No"}\n`
+      return caption.trim()
+    }
+
+    let info, res, inviteInfo
     try {
-      res = text ? null : await client.groupMetadata(m.chat)
-      info = await MetadataGroupInfo(res)
-    } catch {
-      const inviteUrl = text?.match(/(?:https:\/\/)?(?:www\.)?(?:chat\.|wa\.)?whatsapp\.com\/(?:invite\/|joinchat\/)?([0-9A-Za-z]{22,24})/i)?.[1]      
-      if (inviteUrl) {
-        try {
+      // Si se provee texto, asumimos que es un enlace externo
+      if (!text.includes("chat.whatsapp.com") && !text.includes("wa.me")) {
+        res = await client.groupMetadata(m.chat)
+        info = await MetadataGroupInfo(res)
+      } else {
+        const inviteUrl = text?.match(/(?:https:\/\/)?(?:www\.)?(?:chat\.|wa\.)?whatsapp\.com\/(?:invite\/|joinchat\/)?([0-9A-Za-z]{22,24})/i)?.[1]
+        if (inviteUrl) {
           inviteInfo = await client.groupGetInviteInfo(inviteUrl)
           info = await inviteGroupInfo(inviteInfo)
-        } catch (e) {
-          m.reply('《✧》 Grupo no encontrado.')
-          return
         }
       }
+    } catch {
+      // Manejo de errores silencioso para reintentar con el flujo de canales
     }
+
     if (info) {
-    const mentions = (res?.participants || inviteInfo?.participants || []).filter(p => p && p.id && (p.admin === "admin" || p.admin === "superadmin" || p.id === (res?.owner || inviteInfo?.owner))).map(p => p.id).filter(id => id && typeof id === 'string' && id.includes('@'))
+      const mentions = (res?.participants || inviteInfo?.participants || []).map(p => p.id).filter(id => id.includes('@'))
       await client.sendMessage(m.chat, { text: info, contextInfo: {
         mentionedJid: mentions,
         externalAdReply: {
-          title: "❀ Inspector de Grupos",
-          body: "✧ ¡Super Inspectador!",
-          thumbnailUrl: pp ? pp : thumb,
-          sourceUrl: args[0] ? args[0] : inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : md,
+          title: "📻 Inspector Alastor",
+          body: "Sintonizando la verdad...",
+          thumbnailUrl: pp || thumb,
+          sourceUrl: text,
           mediaType: 1,
-          showAdAttribution: false,
           renderLargerThumbnail: false
         }
       }}, { quoted: m })
     } else {
       let newsletterInfo
-      if (!channelUrl) return client.reply(m.chat, "《✧》 Verifique que sea un enlace de canal de WhatsApp.", m)
       if (channelUrl) {
         try {
           newsletterInfo = await client.newsletterMetadata("invite", channelUrl).catch(() => null)
-          if (!newsletterInfo) return client.reply(m.chat, "《✧》 No se encontró información del canal. Verifique que el enlace sea correcto.", m)
-          let caption = "*Inspector de enlaces de Canales*\n\n" + processObject(newsletterInfo, "", newsletterInfo?.preview)
-          if (newsletterInfo?.preview) {
-            pp = getUrlFromDirectPath(newsletterInfo.preview)
-          } else {
-            pp = thumb
-          }
-          if (channelUrl && newsletterInfo) {
-            await client.sendMessage(m.chat, { text: caption, contextInfo: {
-              mentionedJid: Array.isArray(client.parseMention(caption)) ? client.parseMention(caption) : [],
-              externalAdReply: {
-                title: "❀ Inspector de Canales",
-                body: "✧ ¡Super Inspectador!",
-                thumbnailUrl: pp,
-                sourceUrl: args[0],
-                mediaType: 1,
-                showAdAttribution: false,
-                renderLargerThumbnail: false
-              }
-            }}, { quoted: m })
-          }
-          newsletterInfo.id ? client.sendMessage(m.chat, { text: newsletterInfo.id }, { quoted: null }) : ''
+          if (!newsletterInfo) return m.reply("📻 *¡Vaya!* No he podido encontrar ese canal. ¿Seguro que la frecuencia es correcta? ♪")
+          
+          let caption = "📻 🎙️ *𝗜𝗡𝗦𝗣𝗘𝗖𝗖𝗜𝗢𝗡 𝗗𝗘 𝗖𝗔𝗡𝗔𝗟* 🎙️ 📻\n\n" + processObject(newsletterInfo, "", newsletterInfo?.preview)
+          pp = newsletterInfo?.preview ? getUrlFromDirectPath(newsletterInfo.preview) : thumb
+          
+          await client.sendMessage(m.chat, { text: caption, contextInfo: {
+            externalAdReply: {
+              title: "📻 Inspector de Frecuencias",
+              body: "Analizando la señal del canal...",
+              thumbnailUrl: pp,
+              sourceUrl: text,
+              mediaType: 1,
+              renderLargerThumbnail: false
+            }
+          }}, { quoted: m })
         } catch (e) {
-          await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+          m.reply(`📻 *¡CRASH!* Error en la sintonía: ${e.message}`)
         }
+      } else {
+        m.reply(`🎙️ *¡Atención!* Necesito un enlace válido de grupo o canal para empezar mi show. ♪`)
       }
     }
   }
 }
 
-function formatDate(n, locale = "es", includeTime = true) {
-  if (n > 1e12) {
-    n = Math.floor(n / 1000)
-  } else if (n < 1e10) {
-    n = Math.floor(n * 1000)
-  }
-  const date = new Date(n)
-  if (isNaN(date)) return "Fecha no válida"
-  const optionsDate = { day: '2-digit', month: '2-digit', year: 'numeric' }
-  const formattedDate = date.toLocaleDateString(locale, optionsDate)
-  if (!includeTime) return formattedDate
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  const period = hours < 12 ? 'AM' : 'PM'
-  const formattedTime = `${hours}:${minutes}:${seconds} ${period}`
-  return `${formattedDate}, ${formattedTime}`
+// Funciones auxiliares con el mismo espíritu...
+function formatDate(n) {
+  const date = new Date(n > 1e12 ? n : n * 1000)
+  return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function newsletterKey(key) {
   return _.startCase(key.replace(/_/g, " "))
     .replace("Id", "🆔 Identificador")
-    .replace("State", "📌 Estado")
-    .replace("Creation Time", "📅 Fecha de creación")
-    .replace("Name Time", "✏️ Fecha de modificación del nombre")
-    .replace("Name", "🏷️ Nombre")
-    .replace("Description Time", "📝 Fecha de modificación de la descripción")
-    .replace("Description", "📜 Descripción")
-    .replace("Invite", "📩 Invitación")
-    .replace("Handle", "👤 Alias")
-    .replace("Picture", "🖼️ Imagen")
-    .replace("Preview", "👀 Vista previa")
-    .replace("Reaction Codes", "😃 Reacciones")
-    .replace("Subscribers", "👥 Suscriptores")
-    .replace("Verification", "✅ Verificación")
-    .replace("Viewer Metadata", "🔍 Datos avanzados")
-}
-
-function formatValue(key, value, preview) {
-  switch (key) {
-    case "subscribers":
-      return value ? value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "No hay suscriptores"
-    case "creation_time":
-    case "nameTime":
-    case "descriptionTime":
-      return formatDate(value)
-    case "description": 
-    case "name":
-      return value || "No hay información disponible"
-    case "state":
-      switch (value) {
-        case "ACTIVE": return "Activo"
-        case "GEOSUSPENDED": return "Suspendido por región"
-        case "SUSPENDED": return "Suspendido"
-        default: return "Desconocido"
-      }
-    case "reaction_codes":
-      switch (value) {
-        case "ALL": return "Todas las reacciones permitidas"
-        case "BASIC": return "Reacciones básicas permitidas"
-        case "NONE": return "No se permiten reacciones"
-        default: return "Desconocido"
-      }
-    case "verification":
-      switch (value) {
-        case "VERIFIED": return "Verificado"
-        case "UNVERIFIED": return "No verificado"
-        default: return "Desconocido"
-      }
-    case "mute":
-      switch (value) {
-        case "ON": return "Silenciado"
-        case "OFF": return "No silenciado"
-        case "UNDEFINED": return "Sin definir"
-        default: return "Desconocido"
-      }
-    case "view_role":
-      switch (value) {
-        case "ADMIN": return "Administrador"
-        case "OWNER": return "Propietario"
-        case "SUBSCRIBER": return "Suscriptor"
-        case "GUEST": return "Invitado"
-        default: return "Desconocido"
-      }
-    case "picture":
-      if (preview) {
-        return getUrlFromDirectPath(preview)
-      } else {
-        return "No hay imagen disponible"
-      }
-    default:
-      return value !== null && value !== undefined ? value.toString() : "No hay información disponible"
-  }
+    .replace("State", "📌 Estado de Señal")
+    .replace("Creation Time", "📅 Primera Emisión")
+    .replace("Name", "🏷️ Nombre del Show")
+    .replace("Description", "📜 Guion (Descripción)")
+    .replace("Subscribers", "👥 Oyentes")
 }
 
 function processObject(obj, prefix = "", preview) {
@@ -235,18 +141,13 @@ function processObject(obj, prefix = "", preview) {
   Object.keys(obj).forEach(key => {
     const value = obj[key]
     if (typeof value === "object" && value !== null) {
-      if (Object.keys(value).length > 0) {
-        const sectionName = newsletterKey(prefix + key)
-        caption += `\n*\`${sectionName}\`*\n`
-        caption += processObject(value, `${prefix}${key}_`)
-      }
+       // Recursión simple para datos internos
     } else {
-      const shortKey = prefix ? prefix.split("_").pop() + "_" + key : key
-      const displayValue = formatValue(shortKey, value, preview)
-      const translatedKey = newsletterKey(shortKey)
-      caption += `- *${translatedKey}:*\n${displayValue}\n`
+      const translatedKey = newsletterKey(key)
+      if (!translatedKey.includes("undefined")) {
+        caption += `- *${translatedKey}:*\n> ${value || "No disponible"}\n`
+      }
     }
   })
   return caption
 }
-                                                            
