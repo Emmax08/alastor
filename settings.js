@@ -15,7 +15,7 @@ github: "https://github.com/iamDestroy/YukiBot-MD",
 gmail: "thekingdestroy507@gmail.com"
 }
 global.my = {
-ch: '120363401404146384@newsletter',
+ch: '120363422454443738@newsletter',
 name:'「𝘼𝙡𝙖𝙨𝙩𝙤𝙧 𝙗𝙤𝙩 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙤𝙛𝙘」ᥫ᭡',
 }
 
