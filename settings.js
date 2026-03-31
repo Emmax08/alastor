@@ -16,7 +16,7 @@ gmail: "thekingdestroy507@gmail.com"
 }
 global.my = {
 ch: '120363401404146384@newsletter',
-name: 'ೃ࿔ ყµҡเ ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ࿐',
+name:'「𝘼𝙡𝙖𝙨𝙩𝙤𝙧 𝙗𝙤𝙩 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙤𝙛𝙘」ᥫ᭡',
 }
 
 global.mess = {
