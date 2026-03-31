@@ -4,31 +4,47 @@ import {getBuffer} from '../../lib/message.js';
 export default {
   command: ['ytsearch', 'search'],
   category: 'internet',
-  run: async (client, m, args) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     if (!args || !args[0]) {
-      return m.reply('《✧》 Por favor, Ingrese el título de un vídeo.')
+      return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito el título de un espectáculo para empezar la función. ♪')
     }
-    const ress = await yts(`${args[0]}`)
-    const armar = ress.all
-    const Ibuff = await getBuffer(armar[0].image)
-    let teks2 = armar.map((v) => {
+    
+    try {
+      const text = args.join(" ")
+      const ress = await yts(text)
+      const armar = ress.all
+      
+      if (!armar || armar.length === 0) {
+        return m.reply('🍎 *¡Qué decepción!* Mis sombras no han encontrado nada en este rincón del infierno.')
+      }
+
+      const Ibuff = await getBuffer(armar[0].image || armar[0].thumbnail)
+      
+      let teks2 = armar.map((v) => {
         switch (v.type) {
           case 'video':
-            return `➩ *Título ›* *${v.title}* 
-
-> ⴵ *Duración ›* ${v.timestamp}
-> ❖ *Subido ›* ${v.ago}
-> ✿ *Vistas ›* ${v.views}
-> ❒ *Url ›* ${v.url}`.trim()
+            return `📻 🎙️  *𝗧𝗥𝗔𝗡𝗦𝗠𝗜𝗦𝗜𝗢𝗡 𝗩𝗜𝗦𝗨𝗔𝗟* 🎙️ 📻\n\n` +
+                   `🎞️ ➔ *Espectáculo* › *${v.title}*\n` +
+                   `⏳ ➔ *Duración* › ${v.timestamp}\n` +
+                   `📅 ➔ *Emisión* › ${v.ago}\n` +
+                   `👁️ ➔ *Audiencia* › ${v.views.toLocaleString()}\n` +
+                   `🔗 ➔ *Frecuencia* › ${v.url}`.trim()
           case 'channel':
-            return `
-> ❖ Canal › *${v.name}*
-> ❒ Url › ${v.url}
-> ❀ Subscriptores › ${v.subCountLabel} (${v.subCount})
-> ✿ Videos totales › ${v.videoCount}`.trim()
-        }}).filter((v) => v).join('\n\n╾۪〬─ ┄۫╌ ׄ┄┈۪ ─〬 ׅ┄╌ ۫┈ ─ׄ─۪〬 ┈ ┄۫╌ ┈┄۪ ─ׄ〬╼\n\n')
-    client.sendMessage(m.chat, { image: Ibuff, caption: teks2 }, { quoted: m }).catch((e) => {
-      m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
-    })
+            return `📻 🎙️  *𝗖𝗔𝗡𝗔𝗟 𝗗𝗘 𝗘𝗠𝗜𝗦𝗜𝗢𝗡* 🎙️ 📻\n\n` +
+                   `🎩 ➔ *Productor* › *${v.name}*\n` +
+                   `🔗 ➔ *Frecuencia* › ${v.url}\n` +
+                   `👥 ➔ *Audiencia* › ${v.subCountLabel}\n` +
+                   `🎞️ ➔ *Producciones* › ${v.videoCount}`.trim()
+        }
+      }).filter((v) => v).join('\n\n╾۪〬─ ┄۫╌ ׄ┄┈۪ ─〬 ׅ┄╌ ۫┈ ─ׄ─۪〬 ┈ ┄۫╌ ┈┄۪ ─ׄ〬╼\n\n')
+
+      await client.sendMessage(m.chat, { 
+        image: Ibuff, 
+        caption: teks2 + `\n\n*¡Sonríe, el mundo te está observando!*` 
+      }, { quoted: m })
+
+    } catch (e) {
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
+    }
   },
 };
