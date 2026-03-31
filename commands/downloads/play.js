@@ -13,15 +13,16 @@ async function getVideoInfo(query, videoMatch) {
 export default {
   command: ['play', 'mp3', 'ytmp3', 'ytaudio', 'playaudio'],
   category: 'downloader',
-  run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, { args, usedPrefix, command }) => {
     try {
       if (!args[0]) {
-        return m.reply('《✧》Por favor, menciona el nombre o URL del video que deseas descargar')
+        return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito el nombre o la URL de esa melodía para empezar la función. ♪')
       }
       const text = args.join(' ')
       const videoMatch = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([a-zA-Z0-9_-]{11})/)
       const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
       let url = query, title = null, thumbBuffer = null
+      
       try {
         const videoInfo = await getVideoInfo(query, videoMatch)
         if (videoInfo) {
@@ -30,25 +31,36 @@ export default {
           thumbBuffer = await getBuffer(videoInfo.image)
           const vistas = (videoInfo.views || 0).toLocaleString()
           const canal = videoInfo.author?.name || 'Desconocido'
-          const infoMessage = `➩ Descargando › ${title}
-
-> ❖ Canal › *${canal}*
-> ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
-> ❀ Vistas › *${vistas}*
-> ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
-> ❒ Enlace › *${url}*`
+          
+          const infoMessage = `📻 🎙️  *𝗧𝗥𝗔𝗡𝗦𝗠𝗜𝗦𝗜𝗢𝗡 𝗠𝗨𝗦𝗜𝗖𝗔𝗟* 🎙️ 📻\n\n` +
+            `📻 ➔ *Melodía* › ${title}\n` +
+            `🎩 ➔ *Productor* › *${canal}*\n` +
+            `⏳ ➔ *Duración* › *${videoInfo.timestamp || 'Desconocido'}*\n` +
+            `👁️ ➔ *Audiencia* › *${vistas}*\n` +
+            `📅 ➔ *Lanzamiento* › *${videoInfo.ago || 'Desconocido'}*\n` +
+            `🔗 ➔ *Frecuencia* › *${url}*\n\n` +
+            `*¡Disfruta del espectáculo, querido!*`
+            
           await client.sendMessage(m.chat, { image: thumbBuffer, caption: infoMessage }, { quoted: m })
         }
       } catch (err) {
+        // Silencio en la línea...
       }
+
       const audio = await getAudioFromApis(url)
       if (!audio?.url) {
-        return m.reply('《✧》 No se pudo descargar el *audio*, intenta más tarde.')
+        return m.reply('🍎 *¡Vaya interferencia!* No he podido capturar el audio. ¡Qué falta de clase! Intenta más tarde.')
       }
+
       const audioBuffer = await getBuffer(audio.url)
-      await client.sendMessage(m.chat, { audio: audioBuffer, fileName: `${title || 'audio'}.mp3`, mimetype: 'audio/mpeg' }, { quoted: m })
+      await client.sendMessage(m.chat, { 
+        audio: audioBuffer, 
+        fileName: `${title || 'audio'}.mp3`, 
+        mimetype: 'audio/mpeg' 
+      }, { quoted: m })
+
     } catch (e) {
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
     }
   }
 }
