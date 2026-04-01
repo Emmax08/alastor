@@ -185,9 +185,27 @@ export default async (client, m) => {
     user.exp = (user.exp || 0) + Math.floor(Math.random() * 100);
     user.name = m.pushName;
     users.stats[today].cmds++;
-    await cmdData.run(client, m, args, usedPrefix, command, text);
+
+    // --- ESTA ES LA PARTE CLAVE PARA COMPATIBILIDAD DUAL ---
+    // Creamos un objeto con todas las variables útiles
+    const extra = { 
+      args, 
+      usedPrefix, 
+      command, 
+      text, 
+      client, // por si el comando lo pide dentro del objeto
+      m       // por si el comando lo pide dentro del objeto
+    };
+
+    // Ejecutamos pasando los parámetros normales Y el objeto extra al final
+    // Así, si el comando es: run(client, m, { args }) -> funcionará
+    // Y si el comando es: run(client, m, args, usedPrefix) -> también funcionará
+    await cmdData.run(client, m, extra, usedPrefix, command, text);
+    // -------------------------------------------------------
+
   } catch (error) {
-    await client.sendMessage(m.chat, { text: `《✧》 Error al ejecutar el comando\n${error}` }, { quoted: m });
+    console.error(error);
+    await client.sendMessage(m.chat, { text: `《✧》 Error al ejecutar el comando\n${error.message}` }, { quoted: m });
   }
   level(m);
 };
