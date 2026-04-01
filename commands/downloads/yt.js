@@ -1,10 +1,12 @@
 import yts from 'yt-search';
-import {getBuffer} from '../../lib/message.js';
+import { getBuffer } from '../../lib/message.js';
 
 export default {
   command: ['ytsearch', 'search'],
   category: 'internet',
-  run: async (client, m, { args, usedPrefix, command }) => {
+  // Se quitan los {} para recibir los parámetros directamente en orden
+  run: async (client, m, args, usedPrefix, command) => {
+    // Verificamos que args sea un array y tenga contenido
     if (!args || !args[0]) {
       return m.reply('🎙️ *¡Sintonizando frecuencias!* Pero necesito el título de un espectáculo para empezar la función. ♪')
     }
@@ -18,7 +20,9 @@ export default {
         return m.reply('🍎 *¡Qué decepción!* Mis sombras no han encontrado nada en este rincón del infierno.')
       }
 
-      const Ibuff = await getBuffer(armar[0].image || armar[0].thumbnail)
+      // Intentamos obtener la imagen del primer resultado
+      const firstResult = armar[0]
+      const Ibuff = await getBuffer(firstResult.image || firstResult.thumbnail || 'https://i.imgur.com/8N7CHRh.png')
       
       let teks2 = armar.map((v) => {
         switch (v.type) {
@@ -33,10 +37,12 @@ export default {
             return `📻 🎙️  *𝗖𝗔𝗡𝗔𝗟 𝗗𝗘 𝗘𝗠𝗜𝗦𝗜𝗢𝗡* 🎙️ 📻\n\n` +
                    `🎩 ➔ *Productor* › *${v.name}*\n` +
                    `🔗 ➔ *Frecuencia* › ${v.url}\n` +
-                   `👥 ➔ *Audiencia* › ${v.subCountLabel}\n` +
-                   `🎞️ ➔ *Producciones* › ${v.videoCount}`.trim()
+                   `👥 ➔ *Audiencia* › ${v.subCountLabel || 'N/A'}\n` +
+                   `🎞️ ➔ *Producciones* › ${v.videoCount || 'N/A'}`.trim()
+          default:
+            return null
         }
-      }).filter((v) => v).join('\n\n╾۪〬─ ┄۫╌ ׄ┄┈۪ ─〬 ׅ┄╌ ۫┈ ─ׄ─۪〬 ┈ ┄۫╌ ┈┄۪ ─ׄ〬╼\n\n')
+      }).filter((v) => v).slice(0, 10).join('\n\n╾۪〬─ ┄۫╌ ׄ┄┈۪ ─〬 ׅ┄╌ ۫┈ ─ׄ─۪〬 ┈ ┄۫╌ ┈┄۪ ─ׄ〬╼\n\n')
 
       await client.sendMessage(m.chat, { 
         image: Ibuff, 
@@ -44,7 +50,8 @@ export default {
       }, { quoted: m })
 
     } catch (e) {
-      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error de transmisión: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`)
+      console.error(e)
+      await m.reply(`📻 *¡CRASH!* La estática se apodera de la señal... \n> [Error: *${e.message}*]\n¡El espectáculo debe continuar! ♪`)
     }
   },
 };
