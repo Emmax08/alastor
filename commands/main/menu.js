@@ -13,7 +13,7 @@ function normalize(text = '') {
 export default {
   command: ['allmenu', 'help', 'menu'],
   category: 'info',
-  run: async (client, m, { args, usedPrefix, command }) => {
+  run: async (client, m, args, usedPrefix, command) => {
     try {
       const now = new Date();
       // Ajustado a la zona horaria que prefieras, mantuve la lógica original con un toque de elegancia
