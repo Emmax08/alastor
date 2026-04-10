@@ -5,6 +5,10 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { bodyMenu, menuObject } from '../../lib/commands.js';
 
+// Caracter invisible para el "Leer más"
+const more = String.fromCharCode(8206);
+const readMore = more.repeat(4001);
+
 function normalize(text = '') {
   text = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
   return text.endsWith('s') ? text.slice(0, -1) : text;
@@ -15,114 +19,125 @@ export default {
   category: 'info',
   run: async (client, m, args, usedPrefix, command) => {
     try {
-      const now = new Date();
-      // Ajustado a la zona horaria que prefieras, mantuve la lógica original con un toque de elegancia
-      const tempo = moment.tz('America/Mexico_City').format('hh:mm A');
-      const tiempo = moment.tz('America/Mexico_City').format('DD[/]MM[/]YYYY');
-      
+      const idChat = m.chat;
       const botId = client?.user?.id.split(':')[0] + '@s.whatsapp.net';
       const botSettings = global.db.data.settings[botId] || {};
-      const botname = botSettings.botname || 'Radio Demon Bot';
-      const namebot = botSettings.namebot || 'Alastor Personalization';
-      const banner = botSettings.banner || '';
-      const owner = botSettings.owner || '';
-      const canalId = botSettings.id || '';
-      const canalName = botSettings.nameid || 'Canal de Transmisión';
-      const isOficialBot = botId === global.client.user.id.split(':')[0] + '@s.whatsapp.net';
-      const botType = isOficialBot ? 'Emisora Principal' : 'Repetidora Estelar';
       
-      const users = Object.keys(global.db.data.users).length;
-      const device = getDevice(m.key.id);
-      const sender = global.db.data.users[m.sender]?.name || 'Espectador Anónimo';
-      const time = client.uptime ? formatearMs(Date.now() - client.uptime) : "Desconocido";
+      // Configuración de Estilo
+      const botname = botSettings.botname || 'Radio Demon Bot';
+      const canalId = botSettings.id || '120363401893800327@newsletter';
+      const canalName = botSettings.nameid || 'Canal de Transmisión 🎙️';
+      const videoBanner = 'https://files.catbox.moe/bshei1.mp4'; // El video que pediste
 
-      const alias = {
-        anime: ['anime', 'reacciones', 'otaku'],
-        downloads: ['downloads', 'descargas', 'archivos'],
-        economia: ['economia', 'economy', 'banco'],
-        gacha: ['gacha', 'rpg', 'suerte'],
-        grupo: ['grupo', 'group', 'administracion'],
-        nsfw: ['nsfw', '+18', 'pecados'],
-        profile: ['profile', 'perfil', 'usuario'],
-        sockets: ['sockets', 'bots', 'clones'],
-        stickers: ['stickers', 'sticker', 'estampados'],
-        utils: ['utils', 'utilidades', 'herramientas']
+      // Datos de sesión y stats
+      const tempo = moment.tz('America/Mexico_City').format('hh:mm A');
+      const tiempo = moment.tz('America/Mexico_City').format('DD/MM/YYYY');
+      const users = Object.keys(global.db.data.users).length;
+      const senderName = global.db.data.users[m.sender]?.name || 'Espectador Anónimo';
+      const uptime = client.uptime ? formatearMs(Date.now() - client.uptime) : "00:00:00";
+
+      // Definición de Categorías y Alias (Inspirado en tu segundo código)
+      const CATEGORIES = {
+        'anime': { emoji: '✨', tags: ['anime', 'reacciones', 'otaku'] },
+        'downloads': { emoji: '⬇️', tags: ['downloads', 'descargas', 'archivos'] },
+        'economia': { emoji: '💰', tags: ['economia', 'economy', 'banco'] },
+        'gacha': { emoji: '🕹️', tags: ['gacha', 'rpg', 'suerte'] },
+        'grupo': { emoji: '👥', tags: ['grupo', 'group', 'admin'] },
+        'nsfw': { emoji: '🔞', tags: ['nsfw', '+18', 'pecados'] },
+        'profile': { emoji: '👤', tags: ['profile', 'perfil', 'usuario'] },
+        'stickers': { emoji: '🎨', tags: ['stickers', 'sticker', 'estampados'] },
+        'utils': { emoji: '🛠️', tags: ['utils', 'utilidades', 'herramientas'] }
       };
 
       const input = normalize(args[0] || '');
-      const cat = Object.keys(alias).find(k => alias[k].map(normalize).includes(input));
-      const categoryLabel = cat ? ` para la sección *${cat.toUpperCase()}*` : '. ♪';
+      // Buscar si el argumento coincide con alguna categoría o sus tags
+      const selectedCatKey = Object.keys(CATEGORIES).find(k => 
+        k === input || CATEGORIES[k].tags.map(normalize).includes(input)
+      );
 
-      if (args[0] && !cat) {      
-        return m.reply(`📻 *¡Vaya interferencia!* La categoría *${args[0]}* no existe en mi sintonizador.\n\n🎙️ *Categorías disponibles:* \n> ${Object.keys(alias).join(', ')}\n\n*¡El espectáculo debe continuar!*`);
-      }
+      // --- LÓGICA DE SUB-MENÚ (Si el usuario pidió una categoría) ---
+      if (selectedCatKey) {
+        const catData = CATEGORIES[selectedCatKey];
+        const comandos = menuObject[selectedCatKey] || '╰➤ Próximamente... ♪';
 
-      const sections = menuObject;
-      const content = cat ? String(sections[cat] || '') : Object.values(sections).map(s => String(s || '')).join('\n\n');
-      
-      // Construcción del cuerpo del menú con el carisma de Alastor
-      let menu = bodyMenu ? String(bodyMenu || '') + '\n\n' + content : content;
-      
-      const replacements = {
-        $owner: owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? global.db.data.users[owner]?.name || owner.split('@')[0] : owner) : 'Un caballero no revela sus secretos',
-        $botType: botType,
-        $device: device,
-        $tiempo: tiempo,
-        $tempo: tempo,
-        $users: users.toLocaleString(),
-        $cat: categoryLabel,
-        $sender: sender,
-        $botname: botname,
-        $namebot: namebot,
-        $prefix: usedPrefix,
-        $uptime: time
-      };
+        const subMenuTexto = [
+          `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
+          `*│* ${catData.emoji} *${selectedCatKey.toUpperCase()}*`,
+          `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
+          `*🎙️ Sintonizando frecuencia...*`,
+          ``,
+          comandos,
+          ``,
+          `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
+          `*│* 💡 Escribe *${usedPrefix}menu* para volver`,
+          `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
+          `*¡Sonríe! El show no termina.* ♪`
+        ].join('\n');
 
-      for (const [key, value] of Object.entries(replacements)) {
-        menu = menu.replace(new RegExp(`\\${key}`, 'g'), value);
-      }
-
-      const radioCaption = `📻 🎙️  *𝗣𝗥𝗢𝗚𝗥𝗔𝗠𝗔𝗖𝗜𝗢𝗡 𝗗𝗘 𝗟𝗔 𝗥𝗔𝗗𝗜𝗢* 🎙️ 📻\n\n` +
-                           `¡Saludos, *${sender}*! Es un placer tenerte en nuestra frecuencia.\n\n` +
-                           menu + 
-                           `\n\n*¡Sonríe! El mundo nunca está completo sin una sonrisa.* ♪`;
-
-      await client.sendMessage(m.chat, banner.includes('.mp4') || banner.includes('.webm') ? {
-          video: { url: banner },
+        return await client.sendMessage(idChat, {
+          video: { url: videoBanner },
           gifPlayback: true,
-          caption: radioCaption,
-          contextInfo: {
-            mentionedJid: [m.sender],
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-              newsletterJid: canalId,
-              serverMessageId: '',
-              newsletterName: canalName
-            }
-          }
-        } : {
-          text: radioCaption,
-          contextInfo: {
-            mentionedJid: [m.sender],
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-              newsletterJid: canalId,
-              serverMessageId: '',
-              newsletterName: canalName
-            },
-            externalAdReply: {
-              title: `📻 ${botname} - Frecuencia del Infierno`,
-              body: `Transmitiendo para: ${sender}`,
-              showAdAttribution: false,
-              thumbnailUrl: banner,
-              mediaType: 1,
-              renderLargerThumbnail: true
-            }
-          }
+          caption: subMenuTexto,
+          contextInfo: { mentionedJid: [m.sender] }
         }, { quoted: m });
+      }
+
+      // --- LÓGICA DE MENÚ PRINCIPAL (Si no hay argumentos) ---
+      const encabezado = [
+        `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
+        `*│ 📻 | 𝗠𝗔𝗥𝗜𝗔 𝗞𝗨𝗝𝗢𝗨 𝗫 𝗔𝗟𝗔𝗦𝗧𝗢𝗥 | 🎙️*`,
+        `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
+        `⎔ \`${tiempo} | ${tempo}\``,
+        `*├┈──────────────────────┈*`,
+        `*│ 📊 I N F O R M A C I Ó N*`,
+        `*│* ⏱️ *Uptime:* ${uptime}`,
+        `*│* 👥 *Almas:* ${users.toLocaleString()}`,
+        `*│* 👤 *Oyente:* ${senderName}`,
+        `*│* 🤖 *Bot:* ${botname}`,
+        `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
+        `\n🎙️ *SECCIONES DISPONIBLES:*`
+      ].join('\n');
+
+      const listaCategorias = Object.entries(CATEGORIES)
+        .map(([name, data], i) => {
+          return `*│* ${String(i + 1).padStart(2, '0')}. ${data.emoji} *${name.toUpperCase()}*\n*│* ╰➤ \`${usedPrefix}menu ${name}\``;
+        })
+        .join('\n');
+
+      const menuFinal = [
+        encabezado,
+        listaCategorias,
+        `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
+        `\n> 💡 Selecciona una frecuencia escribiendo el nombre de la categoría.`,
+        readMore,
+        `*¡El mundo es un escenario! Y el escenario es un mundo de entretenimiento.* ♪`
+      ].join('\n');
+
+      await client.sendMessage(idChat, {
+        video: { url: videoBanner },
+        gifPlayback: true,
+        caption: menuFinal,
+        contextInfo: {
+          mentionedJid: [m.sender],
+          isForwarded: true,
+          forwardedNewsletterMessageInfo: {
+            newsletterJid: canalId,
+            newsletterName: canalName,
+            serverMessageId: -1
+          },
+          externalAdReply: {
+            title: `📻 Transmisión en Vivo: ${botname}`,
+            body: `Sintonizando: ${senderName}`,
+            thumbnailUrl: 'https://files.catbox.moe/bshei1.mp4', // Puedes cambiar esto por una imagen fija si prefieres
+            mediaType: 1,
+            renderLargerThumbnail: false
+          }
+        }
+      }, { quoted: m });
 
     } catch (e) {
-      await m.reply(`📻 *¡CRASH!* La estática nos invade... \n> [Error de sintonía: *${e.message}*]\n¡El show debe continuar! ♪`);
+      console.error(e);
+      await m.reply(`📻 *¡CRASH!* La estática nos invade...\n> [Error: ${e.message}]`);
     }
   }
 };
