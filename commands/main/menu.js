@@ -5,7 +5,6 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { bodyMenu, menuObject } from '../../lib/commands.js';
 
-// Caracter invisible para el "Leer más"
 const more = String.fromCharCode(8206);
 const readMore = more.repeat(4001);
 
@@ -23,20 +22,17 @@ export default {
       const botId = client?.user?.id.split(':')[0] + '@s.whatsapp.net';
       const botSettings = global.db.data.settings[botId] || {};
       
-      // Configuración de Estilo
       const botname = botSettings.botname || 'Radio Demon Bot';
       const canalId = botSettings.id || '120363401893800327@newsletter';
       const canalName = botSettings.nameid || 'Canal de Transmisión 🎙️';
-      const videoBanner = 'https://files.catbox.moe/bshei1.mp4'; // El video que pediste
+      const videoBanner = 'https://files.catbox.moe/bshei1.mp4'; 
 
-      // Datos de sesión y stats
       const tempo = moment.tz('America/Mexico_City').format('hh:mm A');
       const tiempo = moment.tz('America/Mexico_City').format('DD/MM/YYYY');
       const users = Object.keys(global.db.data.users).length;
       const senderName = global.db.data.users[m.sender]?.name || 'Espectador Anónimo';
       const uptime = client.uptime ? formatearMs(Date.now() - client.uptime) : "00:00:00";
 
-      // Definición de Categorías y Alias (Inspirado en tu segundo código)
       const CATEGORIES = {
         'anime': { emoji: '✨', tags: ['anime', 'reacciones', 'otaku'] },
         'downloads': { emoji: '⬇️', tags: ['downloads', 'descargas', 'archivos'] },
@@ -50,15 +46,16 @@ export default {
       };
 
       const input = normalize(args[0] || '');
-      // Buscar si el argumento coincide con alguna categoría o sus tags
       const selectedCatKey = Object.keys(CATEGORIES).find(k => 
         k === input || CATEGORIES[k].tags.map(normalize).includes(input)
       );
 
-      // --- LÓGICA DE SUB-MENÚ (Si el usuario pidió una categoría) ---
+      // --- SUB-MENÚ (Ahora con $prefix literal) ---
       if (selectedCatKey) {
         const catData = CATEGORIES[selectedCatKey];
-        const comandos = menuObject[selectedCatKey] || '╰➤ Próximamente... ♪';
+        // Aquí reemplazamos cualquier prefijo real que venga del menuObject por $prefix
+        let comandos = menuObject[selectedCatKey] || '╰➤ Próximamente... ♪';
+        comandos = comandos.replace(new RegExp(`\\${usedPrefix}`, 'g'), '$prefix');
 
         const subMenuTexto = [
           `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
@@ -69,7 +66,7 @@ export default {
           comandos,
           ``,
           `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
-          `*│* 💡 Escribe *${usedPrefix}menu* para volver`,
+          `*│* 💡 Escribe *$prefixmenu* para volver`, // Reemplazado
           `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
           `*¡Sonríe! El show no termina.* ♪`
         ].join('\n');
@@ -82,7 +79,7 @@ export default {
         }, { quoted: m });
       }
 
-      // --- LÓGICA DE MENÚ PRINCIPAL (Si no hay argumentos) ---
+      // --- MENÚ PRINCIPAL (Ahora con $prefix literal) ---
       const encabezado = [
         `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
         `*│ 📻 | 𝗠𝗔𝗥𝗜𝗔 𝗞𝗨𝗝𝗢𝗨 𝗫 𝗔𝗟𝗔𝗦𝗧𝗢𝗥 | 🎙️*`,
@@ -100,7 +97,8 @@ export default {
 
       const listaCategorias = Object.entries(CATEGORIES)
         .map(([name, data], i) => {
-          return `*│* ${String(i + 1).padStart(2, '0')}. ${data.emoji} *${name.toUpperCase()}*\n*│* ╰➤ \`${usedPrefix}menu ${name}\``;
+          // Cambiado: se usa "$prefix" en lugar de "${usedPrefix}"
+          return `*│* ${String(i + 1).padStart(2, '0')}. ${data.emoji} *${name.toUpperCase()}*\n*│* ╰➤ \`$prefixmenu ${name}\``;
         })
         .join('\n');
 
@@ -108,7 +106,7 @@ export default {
         encabezado,
         listaCategorias,
         `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
-        `\n> 💡 Selecciona una frecuencia escribiendo el nombre de la categoría.`,
+        `\n> 💡 Selecciona una frecuencia escribiendo el comando de la categoría.`,
         readMore,
         `*¡El mundo es un escenario! Y el escenario es un mundo de entretenimiento.* ♪`
       ].join('\n');
@@ -128,7 +126,7 @@ export default {
           externalAdReply: {
             title: `📻 Transmisión en Vivo: ${botname}`,
             body: `Sintonizando: ${senderName}`,
-            thumbnailUrl: 'https://files.catbox.moe/bshei1.mp4', // Puedes cambiar esto por una imagen fija si prefieres
+            thumbnailUrl: videoBanner,
             mediaType: 1,
             renderLargerThumbnail: false
           }
