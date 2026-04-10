@@ -50,60 +50,49 @@ export default {
         k === input || CATEGORIES[k].tags.map(normalize).includes(input)
       );
 
-      // --- SUB-MENÚ (Ahora con $prefix literal) ---
+      // --- PROCESAMIENTO DE TEXTO ---
+      // Esta función reemplaza los placeholders ($sender, $prefix, etc) por datos reales
+      const replacePlaceholders = (text, catLabel = '') => {
+        return text
+          .replace(/\$sender/g, senderName)
+          .replace(/\$namebot/g, botname)
+          .replace(/\$owner/g, botSettings.owner || 'Emmax')
+          .replace(/\$botType/g, (botId === global.client.user.id.split(':')[0] + '@s.whatsapp.net' ? 'Principal' : 'Sub-Bot'))
+          .replace(/\$device/g, getDevice(m.key.id))
+          .replace(/\$tiempo/g, tiempo)
+          .replace(/\$tempo/g, tempo)
+          .replace(/\$users/g, users.toLocaleString())
+          .replace(/\$cat/g, catLabel)
+          .replace(/\$prefix/g, usedPrefix); // AQUÍ SE PONE EL PREFIJO REAL
+      };
+
       if (selectedCatKey) {
         const catData = CATEGORIES[selectedCatKey];
-        // Aquí reemplazamos cualquier prefijo real que venga del menuObject por $prefix
-        let comandos = menuObject[selectedCatKey] || '╰➤ Próximamente... ♪';
-        comandos = comandos.replace(new RegExp(`\\${usedPrefix}`, 'g'), '$prefix');
-
-        const subMenuTexto = [
-          `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
-          `*│* ${catData.emoji} *${selectedCatKey.toUpperCase()}*`,
-          `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
-          `*🎙️ Sintonizando frecuencia...*`,
-          ``,
-          comandos,
-          ``,
-          `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
-          `*│* 💡 Escribe *$prefixmenu* para volver`, // Reemplazado
-          `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
-          `*¡Sonríe! El show no termina.* ♪`
-        ].join('\n');
+        let content = menuObject[selectedCatKey] || '╰➤ Próximamente... ♪';
+        
+        // Aplicamos el reemplazo de $prefix a los comandos de la categoría
+        const textoFinal = replacePlaceholders(content);
 
         return await client.sendMessage(idChat, {
           video: { url: videoBanner },
           gifPlayback: true,
-          caption: subMenuTexto,
+          caption: textoFinal,
           contextInfo: { mentionedJid: [m.sender] }
         }, { quoted: m });
       }
 
-      // --- MENÚ PRINCIPAL (Ahora con $prefix literal) ---
-      const encabezado = [
-        `*╭┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╮*`,
-        `*│ 📻 | 𝗠𝗔𝗥𝗜𝗔 𝗞𝗨𝗝𝗢𝗨 𝗫 𝗔𝗟𝗔𝗦𝗧𝗢𝗥 | 🎙️*`,
-        `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
-        `⎔ \`${tiempo} | ${tempo}\``,
-        `*├┈──────────────────────┈*`,
-        `*│ 📊 I N F O R M A C I Ó N*`,
-        `*│* ⏱️ *Uptime:* ${uptime}`,
-        `*│* 👥 *Almas:* ${users.toLocaleString()}`,
-        `*│* 👤 *Oyente:* ${senderName}`,
-        `*│* 🤖 *Bot:* ${botname}`,
-        `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
-        `\n🎙️ *SECCIONES DISPONIBLES:*`
-      ].join('\n');
-
+      // --- MENÚ PRINCIPAL ---
       const listaCategorias = Object.entries(CATEGORIES)
         .map(([name, data], i) => {
-          // Cambiado: se usa "$prefix" en lugar de "${usedPrefix}"
-          return `*│* ${String(i + 1).padStart(2, '0')}. ${data.emoji} *${name.toUpperCase()}*\n*│* ╰➤ \`$prefixmenu ${name}\``;
+          return `*│* ${String(i + 1).padStart(2, '0')}. ${data.emoji} *${name.toUpperCase()}*\n*│* ╰➤ \`${usedPrefix}menu ${name}\``;
         })
         .join('\n');
 
-      const menuFinal = [
-        encabezado,
+      let menuPrincipal = replacePlaceholders(bodyMenu, '. ♪');
+      
+      const fullMenu = [
+        menuPrincipal,
+        `🎙️ *SECCIONES DISPONIBLES:*`,
         listaCategorias,
         `*╰┈┈┈┈┈┈┈┈┈୨୧┈┈┈┈┈┈┈┈┈╯*`,
         `\n> 💡 Selecciona una frecuencia escribiendo el comando de la categoría.`,
@@ -114,7 +103,7 @@ export default {
       await client.sendMessage(idChat, {
         video: { url: videoBanner },
         gifPlayback: true,
-        caption: menuFinal,
+        caption: fullMenu,
         contextInfo: {
           mentionedJid: [m.sender],
           isForwarded: true,
@@ -122,13 +111,6 @@ export default {
             newsletterJid: canalId,
             newsletterName: canalName,
             serverMessageId: -1
-          },
-          externalAdReply: {
-            title: `📻 Transmisión en Vivo: ${botname}`,
-            body: `Sintonizando: ${senderName}`,
-            thumbnailUrl: videoBanner,
-            mediaType: 1,
-            renderLargerThumbnail: false
           }
         }
       }, { quoted: m });
