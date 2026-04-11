@@ -2,46 +2,48 @@ export default {
   command: ['setstickermeta', 'setmeta'],
   category: 'stickers',
   run: async (client, m, args, usedPrefix, command) => {
-    // Emojis y estilo de Alastor
+    // Emojis de Alastor
     const radio = '🎙️'
     const sonrisa = '📻'
-    const cetro = '🪄'
 
+    // Si el usuario no pone nada, le explicamos cómo hacerlo
     if (!args || args.length === 0) {
-      return m.reply(`${radio} ¡Sintonía interrumpida! Por favor, ingresa el nombre del pack y el autor para tus estampas.\n\n> *Ejemplo:* ${usedPrefix + command} Hotel Hazbin • Alastor`)
+      return m.reply(`${radio} ¡Sintonía errónea! Debes decirme qué nombre de pack y autor deseas.\n\n> *Ejemplo:* ${usedPrefix + command} Pack de Emmax • Alastor`)
     }
 
     try {
       const fullArgs = args.join(' ')
-      // Soporta separadores como |, • o /
+      // Buscamos los separadores comunes: | o • o /
       const separatorIndex = fullArgs.search(/[|•\/]/)
+      
       let metadatos01, metadatos02
 
       if (separatorIndex === -1) {
+        // Si no hay separador, todo el texto es el Pack y el Autor queda vacío
         metadatos01 = fullArgs.trim()
-        metadatos02 = ''
+        metadatos02 = ' ' // Espacio en blanco para que no use el del bot
       } else {
+        // Dividimos el texto exactamente por el separador
         metadatos01 = fullArgs.slice(0, separatorIndex).trim()
         metadatos02 = fullArgs.slice(separatorIndex + 1).trim()
-      }
-
-      if (!metadatos01) {
-        return m.reply(`${sonrisa} ¡Qué descuidado! El nombre del pack no puede quedar en el olvido. Inténtalo de nuevo.`)
       }
 
       const db = global.db.data
       if (!db.users[m.sender]) db.users[m.sender] = {}
 
-      // Guardamos en las variables que usa tu sistema de plugins
+      // ESTO ES LO IMPORTANTE:
+      // Guardamos exactamente lo que tú escribiste. 
+      // Si metadatos02 está vacío, le ponemos un espacio para "engañar" al bot 
+      // y que no rellene con su texto automático.
       db.users[m.sender].metadatos = metadatos01
-      db.users[m.sender].metadatos2 = metadatos02
+      db.users[m.sender].metadatos2 = metadatos02 || ' ' 
 
       await client.sendMessage(m.chat, { 
-        text: `${cetro} ¡Espectacular! He sintonizado tu nueva identidad para los stickers. ¡Que comience el show, querido amigo!` 
+        text: `${sonrisa} ¡Trato hecho! He sintonizado tus nuevos metadatos. Ahora tus stickers llevarán tu marca personal y nada más.` 
       }, { quoted: m })
 
     } catch (e) {
-      await m.reply(`> Un error inesperado ha estropeado la transmisión *${usedPrefix + command}*.\n> [Error: *${e.message}*]`)
+      await m.reply(`> Hubo un fallo en la transmisión: ${e.message}`)
     }
   }
 }
