@@ -13,8 +13,8 @@ export default {
       if (!json.url) return
       let img = Buffer.from(await (await fetch(json.url)).arrayBuffer())
       
-      // El mensaje con tu nueva temática
-      const caption = `> Oh, aquí tienes una fantasía encantadora para ti... Tan segura y tan deliciosamente vacía...`
+      // El mensaje actualizado con tu nueva frase
+      const caption = `> Oh, aquí tienes una encantadora fantasía para ti... Una hermosa waifu. Tan segura y tan deliciosamente vacía...`
       
       await client.sendFile(m.chat, img, 'thumbnail.jpg', caption, m)
       await m.react('✔️')
