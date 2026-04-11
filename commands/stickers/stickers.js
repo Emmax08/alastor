@@ -1,136 +1,236 @@
-import axios from 'axios';
-import fs from 'fs';
-import { spawn } from 'child_process';
-import webpmux from 'node-webpmux';
+import { dirname } from 'path'
+import { fileURLToPath } from 'url'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as crypto from 'crypto'
+import { ffmpeg } from './converter.js'
+import fluent_ffmpeg from 'fluent-ffmpeg'
+import { spawn } from 'child_process'
+import uploadFile from './uploadFile.js'
+import uploadImage from './uploadImage.js'
+import { fileTypeFromBuffer } from 'file-type'
+import webp from 'node-webpmux'
+import fetch from 'node-fetch'
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const toBuffer = async (url) => Buffer.from((await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 })).data);
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const tmp = path.join(__dirname, '../tmp')
 
-const toWebp = (buffer, isAnimated = false) => new Promise((resolve, reject) => {
-  const tmpIn = `./tmp/spack-in-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const tmpOut = `./tmp/spack-out-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
-  fs.writeFileSync(tmpIn, buffer);
-  const vf = 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=rgba,format=yuva420p';
-  const codec = isAnimated ? 'libwebp_anim' : 'libwebp';
-  const args = ['-y', '-i', tmpIn, '-vf', vf, '-c:v', codec, '-q:v', '50', '-compression_level', '6'];
-  if (isAnimated) args.push('-loop', '0');
-  args.push(tmpOut);
-  const p = spawn('ffmpeg', args);
-  p.on('close', (code) => {
-    try { fs.unlinkSync(tmpIn); } catch {}
-    if (code === 0 && fs.existsSync(tmpOut)) {
-      const result = fs.readFileSync(tmpOut);
-      try { fs.unlinkSync(tmpOut); } catch {}
-      resolve(result);
-    } else {
-      reject(new Error('ffmpeg failed'));
-    }
-  });
-});
+/**
+ * ¡Sintonizando la frecuencia del Demonio de la Radio! 🎙️
+ * Este convertidor ahora detecta tus contratos personalizados (metadatos).
+ */
 
-const isStickerUrl = (url) => /^(https?:\/\/)?(www\.)?sticker\.ly\/s\/[a-zA-Z0-9]+$/i.test(url);
-
-const searchPacks = async (query, attempt = 1) => {
-  try {
-    const { data } = await axios.get('https://api.stellarwa.xyz/stickerly/search', { params: { query, key: 'YukiWaBot' }, timeout: 10000 });
-    return data;
-  } catch (e) {
-    if (e.response?.status === 429 && attempt <= 3) { await delay((e.response.headers['retry-after'] || 5) * 1000); return searchPacks(query, attempt + 1); }
-    throw e;
-  }
-};
-
-const downloadPack = async (url, attempt = 1) => {
-  try {
-    const { data } = await axios.get('https://api.stellarwa.xyz/stickerly/detail', { params: { url, key: 'YukiWaBot' }, timeout: 10000 });
-    return data;
-  } catch (e) {
-    if (e.response?.status === 429 && attempt <= 3) { await delay((e.response.headers['retry-after'] || 5) * 1000); return downloadPack(url, attempt + 1); }
-    if (e.response?.status === 500) return { status: false, error: 500 };
-    throw e;
-  }
-};
-
-const filterRelevantPacks = (packs, query) => {
-  const searchTerm = query.toLowerCase().trim();
-  if (!searchTerm) return packs;
-  return packs.filter(pack => (pack.name || '').toLowerCase().includes(searchTerm));
-};
-
-export default {
-  command: ['stickerpack', 'spack', 'stickers'],
-  category: 'stickers',
-  run: async (client, m, args, usedPrefix, command, text) => {
+function sticker2(img, url) {
+  return new Promise(async (resolve, reject) => {
     try {
-      if (!text) return client.reply(m.chat, `《✧》 Ingresa un texto para buscar packs de stickers o una URL de sticker.ly.`, m);
-      await m.react('🕒');
-      const db = global.db.data;
-      const user = db.users[m.sender] || {};
-      const name = user.name || m.sender.split('@')[0];
-      let packData;
-      const stickerMatch = text.match(/(?:sticker\.ly\/s\/)([a-zA-Z0-9]+)(?:\s|$)/);
-      const url = stickerMatch ? 'https://sticker.ly/s/' + stickerMatch[1] : (isStickerUrl(text) ? text : null);
       if (url) {
-        const detail = await downloadPack(url);
-        if (!detail || !detail.status || detail.error === 500) return client.reply(m.chat, `《✧》 El pack de la URL no está disponible o es privado.`, m);
-        if (!detail.detalles) return client.reply(m.chat, `《✧》 No se pudo obtener el pack desde la URL.`, m);
-        packData = detail.detalles;
-      } else {
-        const search = await searchPacks(text);
-        if (!search.status || !search.resultados?.length) return client.reply(m.chat, `《✧》 No se encontraron packs para *${text}*.`, m);
-        const relevantPacks = filterRelevantPacks(search.resultados, text);
-        const packsToTry = relevantPacks.length > 0 ? relevantPacks : search.resultados;
-        let detail = null;
-        let intentos = 0;
-        const maxIntentos = Math.min(packsToTry.length, 5);
-        const indices = [...Array(packsToTry.length).keys()];
-        for (let i = indices.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [indices[i], indices[j]] = [indices[j], indices[i]];
-        }
-        while (intentos < maxIntentos && !detail) {
-          const res = await downloadPack(packsToTry[indices[intentos]].url);
-          if (res?.status && res?.detalles?.stickers?.length > 0) detail = res.detalles;
-          intentos++;
-        }
-        if (!detail) return client.reply(m.chat, `《✧》 No se pudo descargar ningún pack válido.`, m);
-        packData = detail;
+        let res = await fetch(url)
+        if (res.status !== 200) throw await res.text()
+        img = await res.buffer()
       }
-      const { name: packName, author, stickers, thumbnailUrl } = packData;
-      if (!stickers?.length) return client.reply(m.chat, `《✧》 El pack no contiene stickers válidos.`, m);
-      const MAX_STICKERS = 50;
-      const selectedStickers = stickers.slice(0, MAX_STICKERS);
-      const [cover, stickerResults] = await Promise.all([
-        (async () => {
-          try {
-            const buf = await toBuffer(thumbnailUrl);
-            const converted = await toWebp(buf, false);
-            const img = new webpmux.Image();
-            await img.load(converted);
-            return await img.save(null);
-          } catch {
-            return Buffer.alloc(0);
-          }
-        })(),
-        Promise.all(selectedStickers.map(async (s) => {
-          try {
-            const buffer = await toBuffer(s.imageUrl);
-            const sticker = await toWebp(buffer, s.isAnimated || false);
-            const img = new webpmux.Image();
-            await img.load(sticker);
-            const result = await img.save(null);
-            return { sticker: result, isAnimated: s.isAnimated || false, isLottie: false, emojis: ['🎭'] };
-          } catch {
-            return null;
-          }
-        })).then(results => results.filter(r => r !== null))
-      ]);
-      if (!stickerResults.length) return client.reply(m.chat, `《✧》 No se pudieron procesar los stickers del pack.`, m);
-      await client.sendMessage(m.chat, { stickerPack: { name: packName, publisher: author?.name || author?.username || `@${name}`, description: 'ʏᴜᴋɪ 🧠 Wᴀʙᴏᴛ', cover, stickers: stickerResults } }, { quoted: m });
-      await m.react('✔️');
+      let inp = path.join(tmp, +new Date + '.jpeg')
+      await fs.promises.writeFile(inp, img)
+      let ff = spawn('ffmpeg', [
+        '-y',
+        '-i', inp,
+        '-vf', 'scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000,setsar=1',
+        '-f', 'png',
+        '-'
+      ])
+      ff.on('error', reject)
+      ff.on('close', async () => {
+        await fs.promises.unlink(inp)
+      })
+      let bufs = []
+      const [_spawnprocess, ..._spawnargs] = [...(support.gm ? ['gm'] : support.magick ? ['magick'] : []), 'convert', 'png:-', 'webp:-']
+      let im = spawn(_spawnprocess, _spawnargs)
+      im.on('error', e => console.error(e))
+      im.stdout.on('data', chunk => bufs.push(chunk))
+      ff.stdout.pipe(im.stdin)
+      im.on('exit', () => {
+        resolve(Buffer.concat(bufs))
+      })
     } catch (e) {
-      await m.react('✖️');
-      return m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);
+      reject(e)
+    }
+  })
+}
+
+async function canvas(code, type = 'png', quality = 0.92) {
+  let res = await fetch('https://nurutomo.herokuapp.com/api/canvas?' + queryURL({
+    type,
+    quality
+  }), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain',
+      'Content-Length': code.length
+    },
+    body: code
+  })
+  let image = await res.buffer()
+  return image
+}
+
+function queryURL(queries) {
+  return new URLSearchParams(Object.entries(queries))
+}
+
+async function sticker1(img, url) {
+  url = url ? url : await uploadImage(img)
+  let { mime } = url ? { mime: 'image/jpeg' } : await fileTypeFromBuffer(img)
+  let sc = `let im = await loadImg('data:${mime};base64,'+(await window.loadToDataURI('${url}')))
+c.width = c.height = 512
+let max = Math.max(im.width, im.height)
+let w = 512 * im.width / max
+let h = 512 * im.height / max
+ctx.drawImage(im, 256 - w / 2, 256 - h / 2, w, h)
+`
+  return await canvas(sc, 'webp')
+}
+
+async function sticker3(img, url, packname, author) {
+  url = url ? url : await uploadFile(img)
+  let res = await fetch('https://api.xteam.xyz/sticker/wm?' + new URLSearchParams(Object.entries({
+    url,
+    packname,
+    author
+  })))
+  return await res.buffer()
+}
+
+async function sticker4(img, url) {
+  if (url) {
+    let res = await fetch(url)
+    if (res.status !== 200) throw await res.text()
+    img = await res.buffer()
+  }
+  return await ffmpeg(img, [
+    '-vf', 'scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000,setsar=1'
+  ], 'jpeg', 'webp')
+}
+
+async function sticker5(img, url, packname, author, categories = [''], extra = {}) {
+  const { Sticker } = await import('wa-sticker-formatter')
+  const stickerMetadata = {
+    type: 'default',
+    pack: packname,
+    author,
+    categories,
+    ...extra
+  }
+  return (new Sticker(img ? img : url, stickerMetadata)).toBuffer()
+}
+
+function sticker6(img, url) {
+  return new Promise(async (resolve, reject) => {
+    if (url) {
+      let res = await fetch(url)
+      if (res.status !== 200) throw await res.text()
+      img = await res.buffer()
+    }
+    const type = await fileTypeFromBuffer(img) || {
+      mime: 'application/octet-stream',
+      ext: 'bin'
+    }
+    if (type.ext == 'bin') reject(img)
+    const tmpFile = path.join(__dirname, `../tmp/${+ new Date()}.${type.ext}`)
+    const out = path.join(tmpFile + '.webp')
+    await fs.promises.writeFile(tmpFile, img)
+    let Fffmpeg = /video/i.test(type.mime) ? fluent_ffmpeg(tmpFile).inputFormat(type.ext) : fluent_ffmpeg(tmpFile).input(tmpFile)
+    Fffmpeg
+      .on('error', function (err) {
+        console.error(err)
+        fs.promises.unlink(tmpFile)
+        reject(img)
+      })
+      .on('end', async function () {
+        fs.promises.unlink(tmpFile)
+        resolve(await fs.promises.readFile(out))
+      })
+      .addOutputOptions([
+        `-vcodec`, `libwebp`, `-vf`,
+        `scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15, pad=320:320:-1:-1:color=white@0.0, split [a][b]; [a] palettegen=reserve_transparent=on:transparency_color=ffffff [p]; [b][p] paletteuse`
+      ])
+      .toFormat('webp')
+      .save(out)
+  })
+}
+
+async function addExif(webpSticker, packname, author, categories = [''], extra = {}) {
+  const img = new webp.Image();
+  const stickerPackId = crypto.randomBytes(32).toString('hex');
+  const json = { 'sticker-pack-id': stickerPackId, 'sticker-pack-name': packname, 'sticker-pack-publisher': author, "android-app-store-link": "https://play.google.com/store/apps/details?id=com.marsvard.stickermakerforwhatsapp", "ios-app-store-link": "https://itunes.apple.com/app/sticker-maker-studio/id1443326857", 'emojis': categories, ...extra };
+  let exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
+  let jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
+  let exif = Buffer.concat([exifAttr, jsonBuffer]);
+  exif.writeUIntLE(jsonBuffer.length, 14, 4);
+  await img.load(webpSticker)
+  img.exif = exif
+  return await img.save(null)
+}
+
+async function sticker(img, url, packname, author, ...args) {
+  let lastError, stiker
+  
+  // Sintonía personalizada: Si no hay packname/author, buscamos en la base de datos de Emmax
+  const m = args[0]?.m // Intentamos obtener el mensaje para sacar el sender
+  if (m && (!packname || !author)) {
+    const user = global.db.data.users[m.sender]
+    if (user) {
+      packname = packname || user.metadatos || global.packname
+      author = author || user.metadatos2 || global.author
     }
   }
-};
+
+  // Valores por defecto si todo lo anterior falla
+  packname = packname || global.packname
+  author = author || global.author
+
+  for (let func of [
+    sticker3, support.ffmpeg && sticker6, sticker5,
+    support.ffmpeg && support.ffmpegWebp && sticker4,
+    support.ffmpeg && (support.convert || support.magick || support.gm) && sticker2,
+    sticker1
+  ].filter(f => f)) {
+    try {
+      stiker = await func(img, url, packname, author, ...args)
+      if (stiker.includes('html')) continue
+      if (stiker.includes('WEBP')) {
+        try {
+          return await addExif(stiker, packname, author, ...args)
+        } catch (e) {
+          console.error(e)
+          return stiker
+        }
+      }
+      throw stiker.toString()
+    } catch (err) {
+      lastError = err
+      continue
+    }
+  }
+  console.error(lastError)
+  return lastError
+}
+
+const support = {
+  ffmpeg: true,
+  ffprobe: true,
+  ffmpegWebp: true,
+  convert: true,
+  magick: false,
+  gm: false,
+  find: false
+}
+
+export {
+  sticker,
+  sticker1,
+  sticker2,
+  sticker3,
+  sticker4,
+  sticker6,
+  addExif,
+  support
+}
