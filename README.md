@@ -232,7 +232,7 @@ cd && cd YukiBot-MD && rm -rf Sessions/Owner && npm start
 
 ---
 
-### 🦋 Colaboradores
+### 📻 Colaboradores
 <a href="https://api.yuki-wabot.my.id">
   <img src="https://contrib.rocks/image?repo=iamDestroy/YukiBot-MD" />
 </a>
@@ -240,5 +240,5 @@ cd && cd YukiBot-MD && rm -rf Sessions/Owner && npm start
 ### 🌼 Agradecimientos
 [![ZyxlJs](https://github.com/DevZyxlJs.png?size=100)](https://github.com/DevZyxlJs) [![Carlos](https://github.com/AzamiJs.png?size=100)](https://github.com/AzamiJs)
 
-### 💐 Propietario
+### 👑 Propietario
 [![King](https://github.com/Emmax08.png?size=120)](https://github.com/Emmax08)
