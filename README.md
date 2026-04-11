@@ -238,7 +238,7 @@ cd && cd YukiBot-MD && rm -rf Sessions/Owner && npm start
 </a>
 
 ### 🌼 Agradecimientos
-[![ZyxlJs](https://github.com/DevZyxlJs.png?size=100)](https://github.com/DevZyxlJs) [![Carlos](https://github.com/AzamiJs.png?size=100)](https://github.com/AzamiJs)
+[![ZyxlJs](https://github.com/nevi-dev.png?size=100)](https://github.com/nevi-dev)
 
 ### 👑 Propietario
 [![King](https://github.com/Emmax08.png?size=120)](https://github.com/Emmax08)
