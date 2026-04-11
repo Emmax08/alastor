@@ -143,25 +143,6 @@ cd && cd YukiBot-MD && rm -rf Sessions/Owner && npm start
 
 ---
 
-### Patrocinadores del Proyecto
-
-<details>
-<summary><strong>☁️ Yuki</strong> — API</summary>
-
-<div align="center">
-  <a href="https://api.yuki-wabot.my.id">
-    <img src="https://api.yuki-wabot.my.id/favicon.ico" alt="Logo" height="125px">
-  </a>
-</div>
-
-### 🌱 Enlaces Principales
-| Servicio | Enlace |
-|------------|-----------|
-| Dashboard | [Abrir](https://api.yuki-wabot.my.id) |
-| Store | [Abrir](https://api.yuki-wabot.my.id/store) 
-| Soporte | [Visitar](https://api.yuki-wabot.my.id/ticket)  
-| Estado de Servicios | [Ver](https://api.yuki-wabot.my.id/stats) |
-| Canal | [Abrir](https://stellarwa.xyz/channel/yuki) 
 
 </details>
 
