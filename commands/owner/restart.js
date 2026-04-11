@@ -5,9 +5,10 @@ export default {
   category: 'mod',
   isOwner: true,
   run: async (client, m) => {
-    await client.reply(m.chat, `✎ Reiniciando el infierno...\n> *Prepárate para el vacío...*`, m)
+    // El mensaje que solicitaste con el toque del Radio Demon
+    await client.reply(m.chat, `Reiniciando la radio...\n> *oh qué delicia, parece qué el espectáculo está por comenzar...*`, m)
     
-    // Guardamos dónde debe avisar al despertar
+    // Guardamos el chat para avisar cuando vuelva a encender
     const data = { chat: m.chat, key: m.key }
     fs.writeFileSync('./reboot.json', JSON.stringify(data))
 
