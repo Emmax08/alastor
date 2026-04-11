@@ -12,7 +12,11 @@ export default {
       let json = await res.json()
       if (!json.url) return
       let img = Buffer.from(await (await fetch(json.url)).arrayBuffer())
-      await client.sendFile(m.chat, img, 'thumbnail.jpg', `ꕥ Aquí tienes tu *${command.toUpperCase()}* ฅ^•ﻌ•^ฅ`, m)
+      
+      // El mensaje con tu nueva temática
+      const caption = `> Oh, aquí tienes una fantasía encantadora para ti... Tan segura y tan deliciosamente vacía...`
+      
+      await client.sendFile(m.chat, img, 'thumbnail.jpg', caption, m)
       await m.react('✔️')
     } catch (e) {
       await m.react('✖️')
