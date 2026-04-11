@@ -16,7 +16,7 @@ async function reloadCommands(dir = path.join(__dirname, '..')) {
         await readCommands(fullPath)
       } else if (file.endsWith('.js')) {
         try {
-          const { default: cmd } = await import(fullPath + '?update=' + Date.now()) // fuerza recarga
+          const { default: cmd } = await import(fullPath + '?update=' + Date.now()) 
           if (cmd?.command) {
             cmd.command.forEach((c) => {
               commandsMap.set(c.toLowerCase(), cmd)
@@ -38,12 +38,14 @@ export default {
   run: async (client, m) => {
     exec('git pull', async (error, stdout, stderr) => {
       await reloadCommands(path.join(__dirname, '..'))
+      
       let msg = ''
       if (stdout.includes('Already up to date.')) {
-        msg = 'ꕥ *Estado:* Todo está actualizado'
+        msg = 'ꕥ *Estado:* El inframundo ya está en su máximo esplendor (Actualizado).'
       } else {
-        msg = `*Actualización completada*\n\n${stdout}`
+        msg = `*Ajustes al inframundo exitosos, disfruta el caos*\n\n> *Cambios detectados:*\n${stdout}`
       }
+      
       await client.sendMessage(m.key.remoteJid, { text: msg }, { quoted: m })
     })
   }
