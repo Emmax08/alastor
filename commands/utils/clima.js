@@ -23,35 +23,19 @@ export default {
             report += `💧 *Humedad:* ${current.humidity}%\n`;
             report += `💨 *Viento:* ${current.windspeedKmph} km/h\n\n`;
 
-            report += `📅 *PRONÓSTICO:* \n`;
+            report += `📅 *PRONÓSTICO PRÓXIMOS DÍAS:* \n`;
             forecast.slice(0, 3).forEach((day) => {
                 report += `• *${day.date}:* ${day.maxtempC}° / ${day.mintempC}°\n`;
             });
 
             report += `\n> _Sintonizando para tu supervivencia... ♪_`;
 
-            // En iPhone, a veces el thumbnail muy pesado bloquea el mensaje.
-            // He simplificado el contextInfo para máxima compatibilidad.
-            await client.sendMessage(m.chat, { 
-                text: report,
-                contextInfo: {
-                    externalAdReply: {
-                        title: `CLIMA: ${loc.areaName[0].value}`,
-                        body: `Temperatura actual: ${current.temp_C}°C`,
-                        previewType: "PHOTO",
-                        thumbnailUrl: 'https://files.catbox.moe/d2b1e8.jpg',
-                        containsAutoReply: true,
-                        renderLargerThumbnail: false, // IMPORTANTE: En false para que cargue mejor en iOS
-                        showAdAttribution: true,
-                        sourceUrl: 'https://github.com/Emmax08'
-                    }
-                }
-            }, { quoted: m });
+            // Enviamos solo el texto, sin imágenes ni URLs de previsualización
+            await client.sendMessage(m.chat, { text: report }, { quoted: m });
 
         } catch (error) {
             console.error('Error en clima:', error);
-            // Si el mensaje con imagen falla, enviamos solo texto para que el usuario no se quede sin respuesta
-            m.reply(`🎙️ *CLIMA: ${text.toUpperCase()}* 📻\n\nHubo un error con la señal visual, pero aquí tienes los datos básicos o intenta de nuevo.`);
+            m.reply(`🎙️ *INTERFERENCIA EN LA SEÑAL* 📻\n\nNo se pudo obtener el clima para "${text}". Intenta de nuevo.`);
         }
     }
 };
