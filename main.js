@@ -39,6 +39,11 @@ export default async (client, m) => {
   const isAdmins = m.isGroup ? groupAdmins.some(p => p.phoneNumber === sender || p.jid === sender || p.id === sender || p.lid === sender ) : false
   const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
 
+  // --- [ CERRADURA GLOBAL - RADIO DEMON ] ---
+  // Si el bot está en modo 'self' (privado) y NO eres dueño, el bot ignora todo aquí mismo.
+  if (settings.self && !isOwners) return;
+  // ------------------------------------------
+
   for (const name in global.plugins) {
     const plugin = global.plugins[name];
     if (plugin && typeof plugin.all === "function") {
@@ -108,74 +113,41 @@ export default async (client, m) => {
   }
   
   const hasPrefix = settings.prefix === true ? true : (Array.isArray(settings.prefix) ? settings.prefix : typeof settings.prefix === 'string' ? [settings.prefix] : []).some(p => m.text?.startsWith(p));
-  function getAllSessionBots() {
-    const sessionDirs = ['./Sessions/Subs']
-    let bots = []
-    for (const dir of sessionDirs) {
-      try {
-        const subDirs = fs.readdirSync(path.resolve(dir))
-        for (const sub of subDirs) {
-          const credsPath = path.resolve(dir, sub, 'creds.json')
-          if (fs.existsSync(credsPath)) {
-            bots.push(sub + '@s.whatsapp.net')
-          }
-        }
-      } catch {}
-    }
-    try {
-      const ownerCreds = path.resolve('./Sessions/Owner/creds.json')
-      if (fs.existsSync(ownerCreds)) {
-        const ownerId = global.client.user.id.split(':')[0] + '@s.whatsapp.net'
-        bots.push(ownerId)
-      }
-    } catch {}
-    return bots;
-  }
-  const botprimaryId = chat?.primaryBot
-  if (botprimaryId && botprimaryId !== botJid) {
-    if (hasPrefix) {
-      const participants = m.isGroup ? (await client.groupMetadata(m.chat).catch(() => ({ participants: [] }))).participants : []
-      const primaryInGroup = participants.some(p => (p.phoneNumber || p.id) === botprimaryId)
-      const isPrimarySelf = botprimaryId === botJid
-      const primaryInSessions = getAllSessionBots().includes(botprimaryId)
-      if (!primaryInSessions || !primaryInGroup) {
-        return
-      }
-      if ((primaryInSessions && primaryInGroup) || isPrimarySelf) {
-        return;
-      }
-    }
-  }
   
-  if (!isOwners && settings.self) return;  
+  // --- [ RESTRICCIÓN DE PRIVADOS ] ---
   if (m.chat && !m.chat.endsWith('g.us')) {
-    const allowedInPrivateForUsers = ['allmenu', 'help', 'menu', 'infobot', 'botinfo', 'invite', 'invitar', 'ping', 'speed', 'p', 'status', 'estado', 'report', 'reporte', 'sug', 'suggest', 'token', 'join', 'unir', 'logout', 'reload', 'self', 'setbanner', 'setbotbanner', 'setchannel', 'setbotchannel', 'setbotcurrency', 'setcurrency', 'seticon', 'setboticon', 'setlink', 'setbotlink', 'setbotname', 'setname', 'setbotowner', 'setowner', 'setimage', 'setpfp', 'setprefix', 'setbotprefix', 'setstatus', 'setusername', 'code', 'qr']
-    if (!global.owner.map(num => num + '@s.whatsapp.net').includes(sender) && !allowedInPrivateForUsers.includes(command)) return;
+    const allowedInPrivateForUsers = ['allmenu', 'help', 'menu', 'infobot', 'botinfo', 'invite', 'ping', 'status', 'bot', 'self']
+    if (!isOwners && !allowedInPrivateForUsers.includes(command)) return;
   }
-  if (chat?.isBanned && !(command === 'bot' && text === 'on') && !global.owner.map(num => num + '@s.whatsapp.net').includes(sender)) {
+
+  if (chat?.isBanned && !(command === 'bot' && text === 'on') && !isOwners) {
     await m.reply(`ꕥ El bot *${settings.botname}* está desactivado en este grupo.\n\n> ✎ Un *administrador* puede activarlo con el comando:\n> » *${usedPrefix}bot on*`);
     return;
   }
-  if (m.text && user.banned && !global.owner.map(num => num + '@s.whatsapp.net').includes(sender)) {
-    await m.reply(`ꕥ Estas ${user.genre === 'Mujer' ? 'baneada' : user.genre === 'Hombre' ? 'baneado' : 'baneado/a'}, no puedes usar comandos en este bot!\n\n> ● *Razón ›* ${user.bannedReason || 'Sin especificar'}\n\n> ● Si este Bot es cuenta oficial y tienes evidencia que respalde que este mensaje es un error, puedes exponer tu caso con un moderador.`);
+  if (m.text && user.banned && !isOwners) {
+    await m.reply(`ꕥ Estas ${user.genre === 'Mujer' ? 'baneada' : user.genre === 'Hombre' ? 'baneado' : 'baneado/a'}, no puedes usar comandos en este bot!`);
     return;
   }
 
   if (!users.stats) users.stats = {};
   if (!users.stats[today]) users.stats[today] = { msgs: 0, cmds: 0 }; 
   if (chat.adminonly && !isAdmins) return;
+  
   const cmdData = global.comandos.get(command);
   if (!cmdData) {
     if (settings.prefix === true) return;
     await client.readMessages([m.key]);
     return m.reply(`ꕤ El comando *${command}* no existe.\n✎ Usa *${usedPrefix}help* para ver la lista de comandos disponibles.`);
   }
-  if (cmdData.isOwner && !global.owner.map(num => num + '@s.whatsapp.net').includes(sender)) {
+
+  if (cmdData.isOwner && !isOwners) {
     if (settings.prefix === true) return;
-    return m.reply(`ꕤ El comando *${command}* no existe.\n✎ Usa *${usedPrefix}help* para ver la lista de comandos disponibles.`);
+    return m.reply(`ꕤ El comando *${command}* no existe.`);
   }
+
   if (cmdData.isAdmin && !isAdmins) return client.reply(m.chat, mess.admin, m);
   if (cmdData.botAdmin && !isBotAdmins) return client.reply(m.chat, mess.botAdmin, m);
+  
   try {
     await client.readMessages([m.key]);
     user.usedcommands = (user.usedcommands || 0) + 1;
