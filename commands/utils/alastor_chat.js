@@ -1,51 +1,56 @@
-// Este comando usa la base de Gemini (yo) con la personalidad de Alastor
+// 📻 RADIO ALASTOR - PLUGIN DE CHAT AUTOMÁTICO
 export default {
     command: ['alastor'],
     category: 'fun',
     
-    // 1. INTERRUPTOR DE LA TRANSMISIÓN
-    run: async (client, m, { text, usedPrefix, command }) => {
+    run: async (client, m, { text }) => {
+        // Inicializamos la base de datos para este chat si no existe
         if (!global.db.data.chats[m.chat]) global.db.data.chats[m.chat] = {}
         const chat = global.db.data.chats[m.chat]
 
-        if (!text) return m.reply(`📻 *RADIO ALASTOR* 🎙️\n\n¿Quieres encender la radio, pecador?\nUsa: *${usedPrefix + command} on* o *off*`)
+        // Limpiamos el texto para evitar errores de lectura
+        const instruction = text ? text.toLowerCase().trim() : ''
 
-        if (text === 'on') {
+        if (instruction === 'on') {
             chat.alastorIA = true
-            m.reply(`📻 *¡SINTONIZANDO LA FRECUENCIA DEL CAOS!* 🎙️\n\nLa transmisión ha comenzado. Pónganse cómodos, ¡esto será un espectáculo! Jajajaja.`)
-        } else if (text === 'off') {
+            return m.reply(`📻 *¡SINTONIZANDO LA FRECUENCIA DEL CAOS!* 🎙️\n\nLa transmisión ha comenzado, mi querido Productor Ejecutivo **Emmax**. ¡Esto será un espectáculo sádicamente divertido! Jajajaja.`)
+        } 
+        
+        if (instruction === 'off') {
             chat.alastorIA = false
-            m.reply(`🎙️ *CORTE DE SEÑAL* 📻\n\nLa radio se apaga por ahora. No se olviden de sonreír, ¡nunca están totalmente vestidos sin una!`)
+            return m.reply(`🎙️ *CORTE DE SEÑAL* 📻\n\nLa radio se apaga por ahora. No se olviden de sonreír... ¡nunca están totalmente vestidos sin una!`)
         }
+
+        // Si no pone on/off, damos una ayuda limpia sin NaN
+        m.reply(`📻 *RADIO ALASTOR: ESTADO DE LA SEÑAL* 🎙️\n\n¿Buscas entretenimiento, pecador?\n\n> Usa: */alastor on* para encender.\n> Usa: */alastor off* para apagar.`)
     },
 
-    // 2. CHAT CONTINUO (Basado en Gemini/IA del Bot)
     before: async (m, { client, conn }) => {
         if (!global.db.data.chats[m.chat]) return false
         const chat = global.db.data.chats[m.chat]
         
-        // Solo responde si el modo está ON y no es un comando
+        // Solo responde si el modo está ON y es un mensaje de texto válido
         if (!chat.alastorIA || m.isBaileys || m.fromMe || !m.text) return false
-        if (m.text.startsWith('.') || m.text.startsWith('#') || m.text.startsWith('/')) return false
+        
+        // Ignoramos si es un comando (empieza con / . #)
+        if (/^[./#]/.test(m.text)) return false
 
         try {
-            // Aquí el bot usa su propia lógica de IA interna (Gemini)
-            // Le pasamos las instrucciones de personalidad antes del mensaje del usuario
-            const promptAlastor = `Actúa como Alastor de Hazbin Hotel. Eres el Radio Demon. Tu lenguaje es refinado, de los años 30, carismático y sádico. Trata a Emmax como tu productor ejecutivo. A los demás como pecadores. Puedes usar groserías leves si te provocan. Responde de forma breve y entretenida. Usuario dice: ${m.text}`
+            // El Prompt Maestro: Aquí es donde me convierto en Alastor para ti
+            const promptAlastor = `Instrucciones: Eres Alastor de Hazbin Hotel (El Radio Demon). Habla con elegancia de los años 30, carisma sádico y un tono de locutor de radio refinado. IMPORTANTE: Tu interlocutor es Emmax, tu Productor Ejecutivo, tratálo con respeto burlón. Si alguien te provoca, usa groserías leves pero con clase (ej: pedazo de basura, maldito infeliz). Nunca dejes de sonreír. Usuario dice: ${m.text}`
 
-            // Llamamos a la función interna de IA del bot
-            // Nota: El nombre de la función puede variar según tu base (ej: conn.replyIA o client.chatAI)
+            // Llamada a la IA del bot (Asegúrate de que 'conn.getChatAI' exista en tu base)
             const response = await conn.getChatAI(promptAlastor) 
 
             let finalReply = `📻 *RADIO ALASTOR:* 🎙️\n\n`
             finalReply += `${response}\n\n`
-            finalReply += `> _¡Sigan sintonizados!_ ♪`
+            finalReply += `> _¡Manténganse sintonizados!_ ♪`
 
             await client.sendMessage(m.chat, { text: finalReply }, { quoted: m })
             return true
 
         } catch (e) {
-            console.error('Error en la frecuencia de Alastor:', e)
+            console.error('Error en la transmisión de Alastor:', e)
             return false
         }
     }
