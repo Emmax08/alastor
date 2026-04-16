@@ -9,7 +9,6 @@ export default {
   command: ['sticker', 's'],
   category: 'stickers',
   run: async (client, m, args, usedPrefix, command) => {
-    // Asegurar que la carpeta tmp exista para evitar fallos de escritura
     const tmpDir = './tmp';
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
@@ -28,14 +27,17 @@ export default {
       const quoted = m.quoted ? m.quoted : m;
       const mime = (quoted.msg || quoted).mimetype || '';
       
+      if (!/image|webp|video/.test(mime)) {
+        return m.reply(`🎙️ *¡Sintonizando!* Responde a una imagen o video.\n> Usa *${usedPrefix + command} -list* para ver los efectos. ♪`);
+      }
+
       const db = global.db.data.users[m.sender] || {};
       const name = db.name || 'Espectador';
-      
-      // Metadatos por defecto o personalizados
       const meta1 = db.metadatos ? String(db.metadatos).trim() : '';
       const meta2 = db.metadatos2 ? String(db.metadatos2).trim() : '';
+      
       let pack = meta1 || `📻 𝖱𝖺𝖽𝗂𝗈 𝖣𝖾𝗆𝗈𝗇 𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌`;
-      let author = meta2 || `🎙️ 𝖠𝗅𝖺𝗌𝗍𝗈𝗋 - ${name}`;
+      let author = meta2 || `🎙️ 𝖠𝗅𝖺𝗌𝗍𝗈 r - ${name}`;
 
       if (args) {
         let filteredText = args.join(' ').replace(/-\w+/g, '').trim();
@@ -55,17 +57,41 @@ export default {
         }
       }
 
-      const processWithFFmpeg = async (inputPath) => {
-        const outputPath = path.join(tmpDir, `out-${Date.now()}.webp`);
+      // --- Descarga y Validación de Integridad ---
+      let buffer = await quoted.download();
+      if (!buffer || buffer.length < 100) {
+        return m.reply('📻 *¡Interferencia!* Los datos del medio están corruptos o vacíos. ♪');
+      }
+
+      const ext = /video/.test(mime) ? 'mp4' : 'webp';
+      const inputPath = path.join(tmpDir, `in-${Date.now()}.${ext}`);
+      
+      // Escritura sincrónica para asegurar que el archivo esté listo
+      fs.writeFileSync(inputPath, buffer);
+
+      if (!fs.existsSync(inputPath) || fs.statSync(inputPath).size === 0) {
+        throw new Error("Fallo al escribir archivo temporal.");
+      }
+
+      // --- Procesamiento FFmpeg ---
+      const processWithFFmpeg = async (pathIn) => {
+        const pathOut = path.join(tmpDir, `out-${Date.now()}.webp`);
         const vf = buildFFmpegFilters(effects);
         
         const ffmpegArgs = [
-          '-y', '-analyzeduration', '20M', '-probesize', '20M',
-          '-i', inputPath, 
+          '-y',
+          '-analyzeduration', '30M', 
+          '-probesize', '30M',
+          '-i', pathIn, 
           '-vf', vf, 
-          '-loop', '0', '-pix_fmt', 'yuva420p',
-          '-c:v', 'libwebp', '-q:v', '70',
-          '-fps_mode', 'passthrough', outputPath
+          '-loop', '0', 
+          '-pix_fmt', 'yuva420p',
+          '-c:v', 'libwebp', 
+          '-q:v', '70',
+          '-preset', 'default',
+          '-an', 
+          '-fps_mode', 'passthrough',
+          pathOut
         ];
         
         return new Promise((resolve, reject) => {
@@ -73,44 +99,36 @@ export default {
           let errLog = '';
           p.stderr.on('data', (d) => errLog += d.toString());
           p.on('close', (code) => {
-            if (code === 0 && fs.existsSync(outputPath)) {
-              const data = fs.readFileSync(outputPath);
-              fs.unlinkSync(outputPath);
+            if (code === 0 && fs.existsSync(pathOut)) {
+              const data = fs.readFileSync(pathOut);
+              fs.unlinkSync(pathOut);
               resolve(data);
             } else {
-              reject(new Error(errLog.slice(-150) || 'Error desconocido en FFmpeg'));
+              reject(new Error(errLog.slice(-150) || 'Error en la conversión'));
             }
           });
         });
       };
 
-      if (/image|webp|video/.test(mime)) {
-        let buffer = await quoted.download();
-        const ext = /video/.test(mime) ? 'mp4' : 'webp';
-        const inputPath = path.join(tmpDir, `in-${Date.now()}.${ext}`);
-        fs.writeFileSync(inputPath, buffer);
-        
-        const webpBuffer = await processWithFFmpeg(inputPath);
-        const stickerPath = await writeExif({ mimetype: 'image/webp', data: webpBuffer }, { packname: pack, author: author });
-        
-        await client.sendMessage(m.chat, { sticker: { url: stickerPath } }, { quoted: m });
-        
-        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-        if (fs.existsSync(stickerPath)) fs.unlinkSync(stickerPath);
-      } else {
-        return m.reply('🎙️ *¡Sintonizando!* Responde a una imagen o video para crear un sticker.');
-      }
+      const webpBuffer = await processWithFFmpeg(inputPath);
+      const stickerPath = await writeExif({ mimetype: 'image/webp', data: webpBuffer }, { packname: pack, author: author });
+      
+      await client.sendMessage(m.chat, { sticker: { url: stickerPath } }, { quoted: m });
+      
+      // Limpieza final
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+      if (fs.existsSync(stickerPath)) fs.unlinkSync(stickerPath);
 
     } catch (e) {
-      console.error('ERROR STICKER:', e);
-      await m.reply(`📻 *¡CRASH!* La estática nos invade... \n> [Error: *${e.message || "Fallo en la transmisión"}*]`);
+      console.error('STICKER ERROR:', e);
+      const msg = e.message || "Fallo en la señal";
+      await m.reply(`📻 *¡CRASH!* La estática nos invade... \n> [Error: *${msg.trim()}*]`);
     }
   }
 };
 
 const buildFFmpegFilters = (effects) => {
   const W = 512, H = 512;
-  // Filtro base: escalar, centrar y forzar transparencia RGBA
   let filters = [`scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=rgba`];
 
   for (const e of effects) {
@@ -126,5 +144,3 @@ const buildFFmpegFilters = (effects) => {
 
   return filters.join(',');
 };
-
-const isUrl = (text) => text.match(new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/, 'gi'));
