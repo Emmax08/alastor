@@ -26,6 +26,20 @@ export default async (client, m) => {
   const user = global.db.data.users[sender] ||= {}
   const users = chat.users[sender] || {}
   const pushname = m.pushName || 'Sin nombre';
+
+  // --- [ LÓGICA DE BOT PRINCIPAL (PRIMARY) ] ---
+  const chatData = global.db.data.chats[from] || {};
+  const consolePrimary = chatData.primaryBot; 
+
+  // Si existe un principal configurado en este chat y NO soy yo (este bot)
+  if (consolePrimary && consolePrimary !== botJid) {
+    // Verificamos si es owner antes de silenciar, para que tú siempre tengas control
+    const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
+    
+    // Si no es el dueño, el sub-bot se detiene aquí y no responde
+    if (!isOwners) return; 
+  }
+  // ----------------------------------------------
   
   let groupMetadata = null
   let groupAdmins = []
@@ -40,7 +54,6 @@ export default async (client, m) => {
   const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
 
   // --- [ CERRADURA DE APAGADO GLOBAL ] ---
-  // Esta variable 'globalDisabled' es nueva y no chocará con tu comando de 'privados' (.self)
   if (settings.globalDisabled && !isOwners) return;
 
   for (const name in global.plugins) {
@@ -105,15 +118,12 @@ export default async (client, m) => {
   let text = args.join(' ');
   if (!command) return;
   
-  const chatData = global.db.data.chats[from] || {};
-  const consolePrimary = chatData.primaryBot;
   if (m.message || !consolePrimary || consolePrimary === botJid) {
     console.log(chalk.bold.blue(`╭────────────────────────────···\n│ ${chalk.cyan('Bot')}: ${gradient('lime', 'green')(botJid)}\n│ ${chalk.bold.yellow('Fecha')}: ${gradient('orange', 'yellow')(moment().format('DD/MM/YY HH:mm:ss'))}\n│ ${chalk.bold.blueBright('Usuario')}: ${gradient('cyan', 'blue')(pushname)}\n│ ${chalk.bold.magentaBright('Remitente')}: ${gradient('deepskyblue', 'darkorchid')(sender)}\n${m.isGroup ? '│' + chalk.bold.green(' Grupo') + ': ' + gradient('green', 'lime')(groupName) : '│' + chalk.bold.green(' Privado') + ': ' + gradient('pink', 'magenta')('Chat Privado')}\n${'│' + chalk.bold.magenta(' ID') + ': ' + gradient('violet', 'midnightblue')(m.isGroup ? from : 'Chat Privado')}\n│ ${chalk.bold.cyanBright('Comando usado')}: ${chalk.gray(command ? command : 'No Command')}\n╰────────────────────────────···\n`));
   }
   
   const hasPrefix = settings.prefix === true ? true : (Array.isArray(settings.prefix) ? settings.prefix : typeof settings.prefix === 'string' ? [settings.prefix] : []).some(p => m.text?.startsWith(p));
   
-  // --- [ CERRADURA DE PRIVADOS (EL QUE YA TENÍAS) ] ---
   if (!isOwners && settings.self) return;  
 
   if (m.chat && !m.chat.endsWith('g.us')) {
