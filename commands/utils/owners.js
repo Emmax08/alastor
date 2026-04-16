@@ -1,11 +1,9 @@
 import { generateWAMessageFromContent, proto } from '@whiskeysockets/baileys'
 
 const creatorsList = [
-    { id: 'owner1', name: '𓅓𝙀𝙈ΜΑ𝙓𝓈®️', number: '12892581751', rango: 'Creador de la bot' },
-    { id: 'owner2', name: 'FÉLIX OFC', number: '573235915041', rango: 'Editor y Desarrollador' },
-    { id: 'owner3', name: 'Dioneibi-rip', number: '18294868853', rango: 'Editor y Desarrollador' },
-    { id: 'owner4', name: 'Arlette Xz', number: '573114910796', rango: 'Desarrolladora Principal y Corregidora de Errores' },
-    { id: 'owner5', name: 'Nevi Dev', number: '18096758983', rango: 'Desarrollador Principal' }
+    { name: 'Nevi Dev', number: '18096758983', rango: 'Desarrollador Principal' },
+    { name: 'DuarteXV', number: '573135180876', rango: 'Tester de errores' },
+    { name: 'Arlette Xz', number: '573114910796', rango: 'Desarrolladora' }
 ]
 
 const handler = {
@@ -13,45 +11,29 @@ const handler = {
     category: 'info',
 
     run: async (conn, m) => {
-        const menuText = `*LISTA - CREADORES*\n\n> Selecciona un creador para contactar`
-        const buttons = creatorsList.map(creator => ({
-            buttonId: creator.id,           // ← aquí usamos el id, no el nombre
-            buttonText: { displayText: creator.name },
-            type: 1
-        }))
+        const listText = `*LISTA DE CONTACTOS OFICIALES*\n\n` + 
+                         creatorsList.map(c => `👤 *${c.name}*\n🎖️ ${c.rango}`).join('\n\n---\n\n')
 
+        // Preparamos las VCards de todos los contactos
+        const contacts = creatorsList.map(c => {
+            return {
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL;type=CELL;type=VOICE;waid=${c.number}:+${c.number}\nEND:VCARD`
+            }
+        })
+
+        // 1. Enviamos el texto informativo con la imagen
         await conn.sendMessage(m.chat, {
-            text: menuText,
-            footer: 'Selecciona un contacto',
-            buttons: buttons,
-            headerType: 4,
-            image: { url: 'https://files.catbox.moe/d2b1e8.jpg' }
-        }, { quoted: m })
-    },
-
-    before: async (m, { conn }) => {
-        // ✅ Así se lee el botón presionado
-        const selectedId = m.message?.buttonsResponseMessage?.selectedButtonId
-
-        if (!selectedId) return false
-
-        const selected = creatorsList.find(c => c.id === selectedId)  // ← comparamos por id
-        if (!selected) return false
-
-        await conn.sendMessage(m.chat, {
-            text: `*✅ Contacto Seleccionado*\n\n👤 Nombre: ${selected.name}\n🎖️ Rango: ${selected.rango}`
+            image: { url: 'https://files.catbox.moe/d2b1e8.jpg' },
+            caption: listText
         }, { quoted: m })
 
-        const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${selected.name}\nTEL;type=CELL;type=VOICE;waid=${selected.number}:+${selected.number}\nEND:VCARD`
-
+        // 2. Enviamos las tarjetas de contacto
         await conn.sendMessage(m.chat, {
             contacts: {
-                displayName: selected.name,
-                contacts: [{ vcard }]
+                displayName: 'Contactos Oficiales',
+                contacts: contacts
             }
         }, { quoted: m })
-
-        return true
     }
 }
 
