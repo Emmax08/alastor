@@ -2,57 +2,30 @@ export default {
     command: ['letra', 'font', 'fonts'],
     category: 'utils',
     run: async (client, m, { text, args, usedPrefix, command }) => {
-        // --- [ EXTRACCIÓN DE TEXTO BLINDADA ] ---
-        // Intentamos obtener el texto de todas las fuentes posibles del handler
-        let msgText = text || (args && args.length > 0 ? args.join(' ') : '') || (m.text ? m.text.split(' ').slice(1).join(' ') : '');
-        let prefix = usedPrefix || '/';
-        let cmd = command || 'letra';
-
+        // Extracción de texto ultra-simple para evitar fallos
+        let msgText = text || args.join(' ') || '';
+        
         if (!msgText || msgText.trim() === '') {
-            return m.reply(`🎙️ *¡Sintonía vacía, pecador!* ♪\n\nUsa: *${prefix + cmd} hola*`);
+            return m.reply(`🎙️ *Sintonía vacía...*\n\nUsa: *${usedPrefix + command} hola*`);
         }
 
-        // --- [ GENERADOR DE ESTILOS ] ---
-        const stylize = (t) => {
-            const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            const styles = {
-                mono: "𝖺𝖻𝖼𝖽𝖾𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹",
-                gothic: "𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ",
-                bold: "𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏Ｑ𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙",
-                circles: "ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏ"
-            };
-            
-            const res = {};
-            for (let s in styles) {
-                res[s] = t.split('').map(char => {
-                    const i = letters.indexOf(char);
-                    return i !== -1 ? styles[s][i] : char;
-                }).join('');
-            }
-            return res;
+        // Diccionario de estilos (Solo los más compatibles con iPhone)
+        const styles = {
+            mono: (t) => t.replace(/[a-z]/gi, v => "𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣"["mnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
+            bold: (t) => t.replace(/[a-z]/gi, v => "𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳"["abcdefghijklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
+            gothic: (t) => t.replace(/[a-z]/gi, v => "𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷"["abcdefghijklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
+            script: (t) => t.replace(/[a-z]/gi, v => "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏"["abcdefghijklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v)
         };
 
-        const s = stylize(msgText);
-        let menu = `📻 *RADIO ALASTOR: ESTILOS* 🎙️\n\n`;
-        menu += `*1.* 𝙼𝚘𝚗𝚘 › ${s.mono}\n`;
-        menu += `*2.* 𝔊𝔬𝔱𝔥𝔦𝔠 › ${s.gothic}\n`;
-        menu += `*3.* 𝐁𝐨𝐥𝐝 › ${s.bold}\n`;
-        menu += `*4.* Ⓒⓘⓡⓒⓛⓔⓢ › ${s.circles}\n\n`;
-        menu += `> ✎ *Copia el estilo que prefieras.* ♪`;
+        // Construimos el mensaje de texto puro (Sin botones ni anuncios pesados)
+        let response = `📻 *RADIO ALASTOR: FRECUENCIAS* 🎙️\n\n`;
+        response += `*1. Mono:* \n\`\`\`${styles.mono(msgText)}\`\`\`\n\n`;
+        response += `*2. Bold:* \n${styles.bold(msgText)}\n\n`;
+        response += `*3. Gothic:* \n${styles.gothic(msgText)}\n\n`;
+        response += `*4. Script:* \n${styles.script(msgText)}\n\n`;
+        response += `> ✎ *Copia el que prefieras, pecador.* ♪`;
 
-        await client.sendMessage(m.chat, {
-            text: menu,
-            contextInfo: {
-                externalAdReply: {
-                    title: '【 📻 Ｆｏｎｔｓ  Ａｌａｓｔｏｒ 】',
-                    body: 'Cambiando la frecuencia del texto...',
-                    thumbnailUrl: 'https://i.imgur.com/u8M6X1h.png',
-                    sourceUrl: 'https://github.com/Emmax08',
-                    mediaType: 1,
-                    showAdAttribution: true,
-                    renderLargerThumbnail: true
-                }
-            }
-        }, { quoted: m });
+        // Enviamos como mensaje normal para que iPhone no lo bloquee
+        await m.reply(response);
     }
 };
