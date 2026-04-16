@@ -16,98 +16,88 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const tmp = path.join(__dirname, '../tmp')
 
 /**
- * Lógica de filtros personalizada (Alastor Theme)
+ * Función de respaldo usando API externa (XTeam o similar)
+ * Esta función no depende del FFmpeg de tu servidor.
  */
-const buildFFmpegFilters = (effectsList = []) => {
-  const W = 320, H = 320; 
-  let filters = [`scale='min(${W},iw)':min'(${H},ih)':force_original_aspect_ratio=decrease,fps=15,pad=${W}:${H}:-1:-1:color=white@0.0,format=rgba`]
-
-  for (const e of effectsList) {
-    if (e === 'sepia') filters.push('colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131')
-    if (e === 'blur') filters.push('gblur=sigma=2')
-    if (e === 'grayscale') filters.push('hue=s=0')
-    if (e === 'invert') filters.push('negate')
+async function stickerAPI(img, url, packname, author) {
+  try {
+    // Si no hay URL, subimos el archivo primero para que la API pueda leerlo
+    url = url ? url : await uploadFile(img)
+    
+    // Usamos una API confiable de conversión (ajusta la URL si tienes una propia)
+    let res = await fetch(`https://api.xteam.xyz/sticker/wm?${new URLSearchParams({
+      url,
+      packname,
+      author
+    })}`)
+    
+    if (!res.ok) throw new Error('Error en la API externa')
+    return await res.buffer()
+  } catch (e) {
+    console.error('API Error:', e)
+    return null
   }
-
-  if (effectsList.includes('circle')) {
-    filters.push(`geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte((X-160)*(X-160)+(Y-160)*(Y-160),160*160),255,0)'`)
-  } else if (effectsList.includes('roundrect')) {
-    filters.push(`geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(and(lte(abs(X-160),140),lte(abs(Y-160),140)),255,0)'`)
-  }
-
-  return filters.join(',')
 }
-
-// ... sticker1, sticker2, sticker3, sticker4, sticker5 se mantienen igual ...
 
 /**
- * sticker6 con reparación de decodificador WebP para consolas Akirax/Pterodactyl
+ * addExif se mantiene para inyectar tus metadatos personalizados
  */
-function sticker6(img, url, packname, author, categories, extra = {}) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      if (url) {
-        let res = await fetch(url)
-        if (res.status !== 200) throw await res.text()
-        img = await res.buffer()
-      }
-      const type = await fileTypeFromBuffer(img) || { mime: 'application/octet-stream', ext: 'bin' }
-      if (type.ext == 'bin') return reject(img)
-
-      const input = path.join(tmp, `${+ new Date()}.${type.ext}`)
-      const out = path.join(input + '.webp')
-      await fs.promises.writeFile(input, img)
-
-      const customFilters = buildFFmpegFilters(extra.effects || [])
-      let Fffmpeg = fluent_ffmpeg()
-
-      // --- REPARACIÓN TÉCNICA: Configuración de entrada ---
-      if (/video/i.test(type.mime)) {
-        Fffmpeg.input(input).inputFormat(type.ext)
-      } else {
-        // Forzamos decodificador y aumentamos buffer de análisis para WebP
-        Fffmpeg.input(input).inputOptions([
-          '-vcodec', 'libwebp',
-          '-analyzeduration', '15000000',
-          '-probesize', '15000000'
-        ])
-      }
-
-      Fffmpeg
-        .on('error', function (err) {
-          console.error('FFMPEG ERROR:', err)
-          if (fs.existsSync(input)) fs.promises.unlink(input)
-          reject(img)
-        })
-        .on('end', async function () {
-          if (fs.existsSync(input)) fs.promises.unlink(input)
-          if (fs.existsSync(out)) {
-            const result = await fs.promises.readFile(out)
-            fs.promises.unlink(out)
-            resolve(result)
-          } else {
-            reject(img)
-          }
-        })
-        .addOutputOptions([
-          '-vcodec', 'libwebp',
-          '-vf', `${customFilters},split [a][b]; [a] palettegen=reserve_transparent=on:transparency_color=ffffff [p]; [b][p] paletteuse`,
-          '-lossless', '0',
-          '-q:v', '75',
-          '-loop', '0',
-          '-preset', 'default',
-          '-an',
-          '-fps_mode', 'passthrough'
-        ])
-        .toFormat('webp')
-        .save(out)
-        
-    } catch (e) {
-      reject(e)
-    }
-  })
+async function addExif(webpSticker, packname, author, categories = [''], extra = {}) {
+  const img = new webp.Image();
+  const stickerPackId = crypto.randomBytes(32).toString('hex');
+  const json = { 
+    'sticker-pack-id': stickerPackId, 
+    'sticker-pack-name': packname, 
+    'sticker-pack-publisher': author, 
+    'emojis': categories, 
+    ...extra 
+  };
+  let exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
+  let jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
+  let exif = Buffer.concat([exifAttr, jsonBuffer]);
+  exif.writeUIntLE(jsonBuffer.length, 14, 4);
+  await img.load(webpSticker)
+  img.exif = exif
+  return await img.save(null)
 }
 
-// ... addExif y sticker se mantienen con tu lógica ...
+/**
+ * FUNCIÓN PRINCIPAL REESTRUCTURADA
+ * Prioriza APIs externas para evitar el error de FFmpeg en el host.
+ */
+async function sticker(img, url, ...args) {
+  let lastError, stiker
+  
+  // Lista de funciones de conversión en orden de prioridad
+  // Ponemos stickerAPI (que es sticker3 mejorado) al principio
+  for (let func of [
+    stickerAPI, // 1. Intentar vía API externa (Salva el error de FFmpeg)
+    sticker5,   // 2. Intentar vía wa-sticker-formatter (si está instalado)
+    sticker6    // 3. Intento local (último recurso)
+  ].filter(f => f)) {
+    try {
+      stiker = await func(img, url, ...args)
+      if (!stiker || stiker.includes('html')) continue
+      
+      if (stiker.includes('WEBP')) {
+        try {
+          return await addExif(stiker, ...args)
+        } catch (e) {
+          return stiker
+        }
+      }
+    } catch (err) {
+      lastError = err
+      continue
+    }
+  }
+  return lastError
+}
 
-export { sticker, sticker1, sticker6, addExif, support }
+// ... Mantener sticker1, sticker2, sticker4, sticker5 y sticker6 igual ...
+
+export {
+  sticker,
+  addExif,
+  support
+}
