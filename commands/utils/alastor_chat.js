@@ -1,55 +1,52 @@
-import axios from 'axios';
-
-// --- [ CONFIGURACIÓN DE PERSONALIDAD ] ---
-const ALASTOR_PROMPT = `Eres Alastor, el Radio Demon de Hazbin Hotel. Tu tono es el de un locutor de radio de los años 30: sofisticado, sádico, elegante y carismático. Siempre mantienes una sonrisa. Trata a Emmax como tu Productor Ejecutivo con respeto burlón. A los demás, llámalos pecadores. Puedes usar groserías leves como "maldito infeliz", "estúpida basura" o "hijo de perra" si te provocan, pero siempre con clase.`;
-
+// Este comando usa la base de Gemini (yo) con la personalidad de Alastor
 export default {
-    command: ['alastor-ia', 'ia-alastor'],
+    command: ['alastor'],
     category: 'fun',
     
-    // 1. COMANDO PARA ACTIVAR/DESACTIVAR
+    // 1. INTERRUPTOR DE LA TRANSMISIÓN
     run: async (client, m, { text, usedPrefix, command }) => {
-        const chat = global.db.data.chats[m.chat];
-        if (!text) return m.reply(`📻 *RADIO ALASTOR* 🎙️\n\n¿Quieres encender la radio?\nUsa: *${usedPrefix + command} on* o *off*`);
+        if (!global.db.data.chats[m.chat]) global.db.data.chats[m.chat] = {}
+        const chat = global.db.data.chats[m.chat]
+
+        if (!text) return m.reply(`📻 *RADIO ALASTOR* 🎙️\n\n¿Quieres encender la radio, pecador?\nUsa: *${usedPrefix + command} on* o *off*`)
 
         if (text === 'on') {
-            chat.alastorIA = true;
-            m.reply(`📻 *¡SINTONIZANDO LA FRECUENCIA DEL CAOS!* 🎙️\n\nLa transmisión ha comenzado, querido. Ahora estaré escuchando... ¡Jajajaja!`);
+            chat.alastorIA = true
+            m.reply(`📻 *¡SINTONIZANDO LA FRECUENCIA DEL CAOS!* 🎙️\n\nLa transmisión ha comenzado. Pónganse cómodos, ¡esto será un espectáculo! Jajajaja.`)
         } else if (text === 'off') {
-            chat.alastorIA = false;
-            m.reply(`🎙️ *CORTE DE SEÑAL* 📻\n\nLa radio se apaga por ahora. No se olviden de sonreír...`);
+            chat.alastorIA = false
+            m.reply(`🎙️ *CORTE DE SEÑAL* 📻\n\nLa radio se apaga por ahora. No se olviden de sonreír, ¡nunca están totalmente vestidos sin una!`)
         }
     },
 
-    // 2. LÓGICA AUTOMÁTICA (Responde sin comando)
-    before: async (m, { client }) => {
-        const chat = global.db.data.chats[m.chat];
+    // 2. CHAT CONTINUO (Basado en Gemini/IA del Bot)
+    before: async (m, { client, conn }) => {
+        if (!global.db.data.chats[m.chat]) return false
+        const chat = global.db.data.chats[m.chat]
         
-        // Reglas para NO responder automáticamente:
-        if (!chat?.alastorIA) return false; // Si el modo está apagado
-        if (m.isBaileys || m.fromMe) return false; // Si el mensaje es del bot mismo
-        if (!m.text) return false; // Si no hay texto (ej: mandan un sticker)
-        if (m.text.startsWith('.') || m.text.startsWith('#')) return false; // Si están usando otro comando
+        // Solo responde si el modo está ON y no es un comando
+        if (!chat.alastorIA || m.isBaileys || m.fromMe || !m.text) return false
+        if (m.text.startsWith('.') || m.text.startsWith('#') || m.text.startsWith('/')) return false
 
         try {
-            // Llamada a la IA (Aquí conectas con tu API de confianza)
-            // Usamos un ejemplo genérico de axios, cámbialo por tu API preferida
-            const { data } = await axios.get(`https://api.simsimi.vn/v2/simsimi?text=${encodeURIComponent(m.text)}&lc=es`);
-            
-            // Inyectamos la personalidad de Alastor al mensaje que recibimos
-            // (Nota: Si tu API permite "system prompt", es mejor pasarle el ALASTOR_PROMPT ahí)
-            const response = data.result;
+            // Aquí el bot usa su propia lógica de IA interna (Gemini)
+            // Le pasamos las instrucciones de personalidad antes del mensaje del usuario
+            const promptAlastor = `Actúa como Alastor de Hazbin Hotel. Eres el Radio Demon. Tu lenguaje es refinado, de los años 30, carismático y sádico. Trata a Emmax como tu productor ejecutivo. A los demás como pecadores. Puedes usar groserías leves si te provocan. Responde de forma breve y entretenida. Usuario dice: ${m.text}`
 
-            let finalReply = `📻 *${m.isGroup ? 'ALASTOR' : 'RADIO DEMON'}:* 🎙️\n\n`;
-            finalReply += `${response}\n\n`;
-            finalReply += `> _¡No sintonicen otra emisora!_ ♪`;
+            // Llamamos a la función interna de IA del bot
+            // Nota: El nombre de la función puede variar según tu base (ej: conn.replyIA o client.chatAI)
+            const response = await conn.getChatAI(promptAlastor) 
 
-            await client.sendMessage(m.chat, { text: finalReply }, { quoted: m });
-            return true;
+            let finalReply = `📻 *RADIO ALASTOR:* 🎙️\n\n`
+            finalReply += `${response}\n\n`
+            finalReply += `> _¡Sigan sintonizados!_ ♪`
+
+            await client.sendMessage(m.chat, { text: finalReply }, { quoted: m })
+            return true
 
         } catch (e) {
-            console.error('Error en Alastor IA:', e);
-            return false;
+            console.error('Error en la frecuencia de Alastor:', e)
+            return false
         }
     }
-};
+}
