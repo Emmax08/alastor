@@ -1,30 +1,38 @@
 export default {
-    command: ['letra', 'font', 'fonts'],
+    command: ['letra', 'font'],
     category: 'utils',
-    run: async (client, m) => {
-        // 1. Obtenemos el texto eliminando el comando de forma segura
-        const text = m.text ? m.text.replace(/^\/[a-zA-Z]+\s+/, '').trim() : '';
+    run: async (client, m, { text }) => {
+        // Extraemos el texto de forma segura
+        const input = text || m.text?.split(' ').slice(1).join(' ') || '';
 
-        if (!text || text === m.text) {
-            return m.reply(`🎙️ *Sintonía vacía...*\n\nUsa: */letra hola*`);
-        }
+        if (!input) return m.reply(`🎙️ *¡Sintonía vacía!* ♪\n\nUsa: */letra hola*`);
 
-        // 2. Mapeo de estilos (Corregido para máxima compatibilidad)
-        const styles = {
-            mono: (t) => t.replace(/[a-zA-Z]/g, v => "𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣"["mnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
-            bold: (t) => t.replace(/[a-zA-Z]/g, v => "𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳"["abcdefghijklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
-            gothic: (t) => t.replace(/[a-zA-Z]/g, v => "𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷"["abcdefghijklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v),
-            script: (t) => t.replace(/[a-zA-Z]/g, v => "𝒶𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏"["ajklmnopqrstuvwxyz".indexOf(v.toLowerCase())] || v)
+        // Función de transformación directa (Evita los rombos )
+        const transform = (str, offset) => {
+            return str.split('').map(char => {
+                const code = char.charCodeAt(0);
+                // Solo transforma letras A-Z y a-z
+                if (code >= 65 && code <= 90) return String.fromCodePoint(code + offset - 65);
+                if (code >= 97 && code <= 122) return String.fromCodePoint(code + offset - 71);
+                return char;
+            }).join('');
         };
 
-        // 3. Construcción del mensaje con formato nativo de WhatsApp
-        let response = `📻 *RADIO ALASTOR: FRECUENCIAS* 🎙️\n\n`;
-        response += `*1. Máquina:* \n\`\`\`${styles.mono(text)}\`\`\`\n\n`;
-        response += `*2. Negrita:* \n${styles.bold(text)}\n\n`;
-        response += `*3. Gótico:* \n${styles.gothic(text)}\n\n`;
-        response += `*4. Elegante:* \n${styles.script(text)}\n\n`;
-        response += `> ✎ *Copia el estilo que prefieras.* ♪`;
+        // Generamos los estilos usando offsets de la tabla Unicode
+        const f = {
+            mono: transform(input, 0x1D670),
+            bold: transform(input, 0x1D400),
+            gothic: transform(input, 0x1D504),
+            script: transform(input, 0x1D4D0)
+        };
 
-        await m.reply(response);
+        let menu = `📻 *RADIO ALASTOR: FRECUENCIAS* 🎙️\n\n`;
+        menu += `*1. Máquina:* \n\`\`\`${f.mono}\`\`\`\n\n`;
+        menu += `*2. Negrita:* \n${f.bold}\n\n`;
+        menu += `*3. Gótico:* \n${f.gothic}\n\n`;
+        menu += `*4. Elegante:* \n${f.script}\n\n`;
+        menu += `> ✎ *Copia el estilo que prefieras, pecador.* ♪`;
+
+        await m.reply(menu);
     }
 };
