@@ -10,7 +10,6 @@ export default {
   category: 'stickers',
   run: async (client, m, args, usedPrefix, command) => {
     try {
-      // 1. Menú de ayuda de stickers
       if (args && args[0] === '-list') {
         let helpText = `📻 🎙️ *𝗖𝗔𝗧𝗔𝗟𝗢𝗚𝗢 𝗗𝗘 𝗘𝗦𝗧𝗔𝗠𝗣𝗔𝗗𝗢𝗦* 🎙️ 📻\n\n` +
           `🎭 *𝗙𝗼𝗿𝗺𝗮𝘀 𝗗𝗶𝘀𝗽𝗼𝗻𝗶𝗯𝗹𝗲𝘀:*\n` +
@@ -29,11 +28,9 @@ export default {
         return m.reply(helpText);
       }
 
-      // 2. Identificar el contenido (mensaje directo o citado)
       const quoted = m.quoted ? m.quoted : m;
       const mime = (quoted.msg || quoted).mimetype || '';
       
-      // 3. Obtener metadatos del usuario de la DB global
       const db = global.db.data.users[m.sender] || {};
       const name = db.name || 'Espectador';
       const meta1 = db.metadatos ? String(db.metadatos).trim() : '';
@@ -42,7 +39,6 @@ export default {
       let textoDefault1 = meta1 ? meta1 : `📻 𝖱𝖺𝖽𝗂𝗈 𝖣𝖾𝗆𝗈𝗇 𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌`;
       let textoDefault2 = meta2 ? meta2 : `🎙️ 𝖠𝗅𝖺𝗌𝗍𝗈𝗋 - ${name}`;
 
-      // 4. Procesar Argumentos (Flags y Texto)
       let urlArg = null;
       let argsWithoutUrl = [];
       if (args) {
@@ -57,7 +53,6 @@ export default {
       let pack = marca[0] || textoDefault1;
       let author = marca.length > 1 ? marca[1] : textoDefault2;
 
-      // Definición de efectos
       const shapeArgs = { '-c': 'circle', '-t': 'triangle', '-r': 'roundrect', '-v': 'heart', '-m': 'mirror' };
       const effectArgs = { '-blur': 'blur', '-sepia': 'sepia', '-grayscale': 'grayscale', '-invert': 'invert' };
       
@@ -67,7 +62,6 @@ export default {
         else if (effectArgs[arg]) effects.push({ type: 'effect', value: effectArgs[arg] });
       }
 
-      // --- Funciones de Procesamiento ---
       const sendWebpWithExif = async (webpBuffer) => {
         const media = { mimetype: 'image/webp', data: webpBuffer };
         const metadata = { packname: pack, author: author };
@@ -80,20 +74,33 @@ export default {
         const outputPath = `./tmp/sticker-${Date.now()}.webp`;
         const vf = buildFFmpegFilters(effects);
         
-        // Ajustes para WebP animado o estático
+        // --- CONFIGURACIÓN REPARADA PARA DEBIAN 12 / FFmpeg 5.1+ ---
         let ffmpegArgs = [
-          '-y', '-i', inputPath, 
+          '-y',
+          '-flags', 'low_delay',
+          '-analyzeduration', '15M',
+          '-probesize', '15M',
+          '-i', inputPath, 
           '-vf', vf, 
-          '-loop', '0', '-pix_fmt', 'yuva420p',
-          '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75',
-          '-preset', 'default', '-an', '-vsync', '0', outputPath
+          '-loop', '0', 
+          '-pix_fmt', 'yuva420p',
+          '-c:v', 'libwebp', 
+          '-lossless', '0', 
+          '-q:v', '75',
+          '-preset', 'default', 
+          '-an', 
+          '-fps_mode', 'passthrough', // Reemplazo de -vsync
+          outputPath
         ];
         
         await new Promise((resolve, reject) => {
           const p = spawn('ffmpeg', ffmpegArgs);
           let err = '';
           p.stderr.on('data', (d) => err += d.toString());
-          p.on('close', (code) => { if (code === 0) resolve(); else reject(new Error(err)); });
+          p.on('close', (code) => { 
+            if (code === 0) resolve(); 
+            else reject(new Error(err)); 
+          });
         });
 
         const data = fs.readFileSync(outputPath);
@@ -101,7 +108,6 @@ export default {
         await sendWebpWithExif(data);
       };
 
-      // --- Ejecución Principal ---
       if (/image|webp/.test(mime)) {
         let buffer = await quoted.download();
         const inputPath = `./tmp/in-${Date.now()}.webp`;
@@ -110,7 +116,7 @@ export default {
         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
         
       } else if (/video/.test(mime)) {
-        if ((quoted.msg || quoted).seconds > 10) return m.reply('📻 *¡Demasiado largo!* El show debe ser breve para caber en un sticker. ♪');
+        if ((quoted.msg || quoted).seconds > 10) return m.reply('📻 *¡Demasiado largo!* El show debe ser breve. ♪');
         let buffer = await quoted.download();
         const inputPath = `./tmp/video-${Date.now()}.mp4`;
         fs.writeFileSync(inputPath, buffer);
@@ -126,17 +132,16 @@ export default {
         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
         
       } else {
-        return m.reply(`🎙️ *¡Sintonizando!* Responde a una imagen o video para crear un sticker.\n> Usa *${usedPrefix + command} -list* para ver los trucos de mi chistera. ♪`);
+        return m.reply(`🎙️ *¡Sintonizando!* Responde a una imagen o video.\n> Usa *${usedPrefix + command} -list* para ver los efectos. ♪`);
       }
 
     } catch (e) {
       console.error(e);
-      await m.reply(`📻 *¡CRASH!* La estática nos invade... \n> [Error: *${e.message}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`);
+      await m.reply(`📻 *¡CRASH!* La estática nos invade... \n> [Error: *${e.message.split('\n').pop()}*]\n¡No te preocupes, el espectáculo debe continuar! ♪`);
     }
   }
 };
 
-// --- Maquinaria Pesada (Auxiliares) ---
 const isUrl = (text) => text.match(new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/, 'gi'));
 
 const buildFFmpegFilters = (effects) => {
@@ -145,7 +150,7 @@ const buildFFmpegFilters = (effects) => {
   const shape = effects.find(e => e.type === 'shape')?.value;
   const effectList = effects.filter(e => e.type === 'effect').map(e => e.value);
   
-  // Centrado y escalado base
+  // Normalización de escala y formato RGBA para evitar errores de decodificación
   filters.push(`scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=rgba`);
 
   for (const effect of effectList) {
@@ -155,11 +160,10 @@ const buildFFmpegFilters = (effects) => {
     if (effect === 'invert') filters.push('negate');
   }
 
-  // Máscaras de forma (Alpha channel)
   if (shape === 'circle') {
     filters.push(`geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lte((X-256)*(X-256)+(Y-256)*(Y-256),256*256),255,0)'`);
   } else if (shape === 'roundrect') {
-    filters.push(`drawbox=t=fill:color=black@0,format=rgba,geq=a='if(and(lte(abs(X-256),230),lte(abs(Y-256),230)),255,0)'`);
+    filters.push(`geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(and(lte(abs(X-256),230),lte(abs(Y-256),230)),255,0)'`);
   }
   
   return filters.join(',');
