@@ -1,60 +1,52 @@
-import fs from 'fs';
-
-// --- ESTA FUNCIÓN SE EJECUTA SOLA CUANDO HAY CAMBIOS EN EL GRUPO ---
-export const groupUpdateProtection = async (client, anu) => {
+// Archivo: ./commands/proteccion.js
+export const groupUpdateProtection = async (sock, anu) => {
     try {
         const { id, participants, action, author } = anu;
         
-        // Accedemos a la base de datos global de tu bot
+        // Acceder a la base de datos global de tu bot
         const chat = global.db.data.chats[id];
-        if (!chat || !chat.proteccion) return; // Si no existe el chat o la protección está OFF, salir.
+        if (!chat || !chat.proteccion) return; 
 
-        const botJid = client.user.id.split(':')[0] + '@s.whatsapp.net';
+        const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         if (!author || author === botJid) return;
 
-        const metadata = await client.groupMetadata(id);
+        const metadata = await sock.groupMetadata(id);
         const victim = participants[0];
 
-        // 1. SI QUITAN UN ADMIN (DEMOTE)
         if (action === 'demote') {
-            // Si el que lo quitó no es el dueño y no hay permiso especial
             if (author !== metadata.owner && chat.permisoDemote !== victim) {
+                // Acción automática: Sacar al agresor y devolver admin
+                await sock.groupParticipantsUpdate(id, [author], 'remove');
+                await sock.groupParticipantsUpdate(id, [victim], 'promote');
                 
-                await client.groupParticipantsUpdate(id, [author], 'remove'); // Fuera el traidor
-                await client.groupParticipantsUpdate(id, [victim], 'promote'); // Devolver admin
-                
-                await client.sendMessage(id, { 
-                    text: `🎙️ *RADIO ALASTOR:* @${author.split('@')[0]} ha intentado un golpe de estado. ¡Eliminado! ♪`,
+                await sock.sendMessage(id, { 
+                    text: `🎙️ *RADIO ALASTOR:* @${author.split('@')[0]} ha intentado un golpe de estado. ¡Sintonizando su eliminación! ♪`,
                     mentions: [author, victim]
                 });
             } else {
-                chat.permisoDemote = null; // Limpiar permiso si ya se usó
+                chat.permisoDemote = null; // Limpiar el permiso si se usó legalmente
             }
         }
 
-        // 2. SI SACAN A UN ADMIN (REMOVE)
         if (action === 'remove' && author !== metadata.owner && author !== victim) {
-            // Verificamos si la víctima era admin (opcional, aquí protege a todos si la protección está ON)
-            await client.groupParticipantsUpdate(id, [author], 'remove');
-            await client.sendMessage(id, { 
+            // Protección contra expulsiones no autorizadas
+            await sock.groupParticipantsUpdate(id, [author], 'remove');
+            await sock.sendMessage(id, { 
                 text: `📻 @${author.split('@')[0]} sacó a alguien sin permiso. ¡El espectáculo no acepta groserías!`,
                 mentions: [author]
             });
         }
     } catch (e) {
-        console.error("Error en protección:", e);
+        console.error("Error en la frecuencia de protección:", e);
     }
 };
 
-// --- ESTE ES EL COMANDO PARA TU MENU (.proteccion on/off) ---
+// El comando para activar/desactivar (para tu handler)
 export default {
     command: ['proteccion', 'permiso'],
     category: 'admin',
-    isAdmin: true,
-    botAdmin: true,
-    run: async (client, m, args, usedPrefix, command) => {
+    run: async (sock, m, args, usedPrefix, command) => {
         const chat = global.db.data.chats[m.chat];
-
         if (command === 'proteccion') {
             if (args[0] === 'on') {
                 chat.proteccion = true;
@@ -66,12 +58,11 @@ export default {
                 m.reply(`🎙️ Estado: ${chat.proteccion ? 'ON' : 'OFF'}\nUsa: ${usedPrefix + command} on/off`);
             }
         }
-
         if (command === 'permiso') {
             let target = m.mentionedJid[0] || (m.quoted ? m.quoted.sender : null);
             if (!target) return m.reply('📻 Menciona a quién permites degradar.');
             chat.permisoDemote = target;
-            m.reply(`✅ Permiso concedido para degradar a @${target.split('@')[0]} por esta única vez.`, { mentions: [target] });
+            m.reply(`✅ Permiso concedido para degradar a @${target.split('@')[0]}.`, { mentions: [target] });
         }
     }
 };
