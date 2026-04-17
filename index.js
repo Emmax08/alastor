@@ -1,6 +1,7 @@
 import "./settings.js";
 import main from './main.js';
 import events from './commands/events.js';
+import { groupUpdateProtection } from './commands/proteccion.js'; // <-- IMPORTACIÓN AÑADIDA
 import { Browsers, makeWASocket, makeCacheableSignalKeyStore, useMultiFileAuthState, fetchLatestBaileysVersion, jidDecode, DisconnectReason } from "@whiskeysockets/baileys";
 import cfonts from 'cfonts';
 import pino from "pino";
@@ -187,6 +188,12 @@ async function startBot() {
   global.client = sock;
   sock.isInit = false;
   sock.ev.on("creds.update", saveCreds);
+
+  // --- [ EVENTO DE PROTECCIÓN DE GRUPOS AÑADIDO ] ---
+  sock.ev.on("group-participants.update", async (anu) => {
+    await groupUpdateProtection(sock, anu);
+  });
+  // --------------------------------------------------
 
   if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
     setTimeout(async () => {
