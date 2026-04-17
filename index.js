@@ -1,7 +1,8 @@
 import "./settings.js";
 import main from './main.js';
 import events from './commands/events.js';
-import { groupUpdateProtection } from './commands/proteccion.js'; // <-- IMPORTACIÓN AÑADIDA
+import import { groupUpdateProtection } from './commands/proteccion.js';
+
 import { Browsers, makeWASocket, makeCacheableSignalKeyStore, useMultiFileAuthState, fetchLatestBaileysVersion, jidDecode, DisconnectReason } from "@whiskeysockets/baileys";
 import cfonts from 'cfonts';
 import pino from "pino";
