@@ -1,61 +1,58 @@
 import fs from 'fs';
 
-/**
- * LÓGICA AUTOMÁTICA DE PROTECCIÓN MEJORADA
- * Se han eliminado funciones que causaban la salida del bot.
- */
 export const groupUpdateProtection = async (sock, anu) => {
     try {
         const { id, participants, action, author } = anu;
         
-        // Acceso a la base de datos global
+        // Cargar datos del chat
         const chat = global.db.data.chats[id];
         if (!chat || !chat.proteccion) return; 
 
         const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         
-        // 1. Evitar que el bot se afecte a sí mismo o actúe por sus propias acciones
+        // Filtro de seguridad: Si no hay autor o el autor es el propio bot, ignorar.
         if (!author || author === botJid) return;
 
         const metadata = await sock.groupMetadata(id);
         const victim = participants[0];
 
-        // 2. DETECCIÓN DE DEGRADACIÓN (QUITAR ADMIN)
+        // 1. CASO: QUITAN ADMIN (DEMOTE)
         if (action === 'demote') {
-            // Si el que quitó el admin NO es el dueño y NO hay permiso especial
+            // Si el agresor no es el dueño del grupo y no tiene permiso especial
             if (author !== metadata.owner && chat.permisoDemote !== victim) {
                 
-                // ORDEN DE ACCIÓN:
-                // Primero: Devolver el admin a la víctima (Promote)
+                // Paso 1: Devolver admin a la víctima de inmediato
                 await sock.groupParticipantsUpdate(id, [victim], 'promote');
                 
-                // Segundo: Eliminar al que causó el conflicto (Remove)
+                // Paso 2: Pequeña pausa para evitar que el servidor de WA se colapse
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Paso 3: Expulsar al agresor
                 await sock.groupParticipantsUpdate(id, [author], 'remove');
                 
                 await sock.sendMessage(id, { 
-                    text: `🎙️ RADIO ALASTOR: Intento de traición detectado. @${victim.split('@')[0]} ha recuperado su puesto y el infractor @${author.split('@')[0]} ha sido eliminado. ♪`,
+                    text: `RADIO ALASTOR: Intento de golpe de estado fallido. @${victim.split('@')[0]} recupera su puesto. El traidor @${author.split('@')[0]} ha sido expulsado.`,
                     mentions: [author, victim]
                 });
             } else {
-                // Si había permiso, se limpia para la próxima vez
-                chat.permisoDemote = null;
+                chat.permisoDemote = null; 
             }
         }
 
-        // 3. DETECCIÓN DE EXPULSIÓN (REMOVE)
-        // Si alguien expulsa a un admin (o a cualquier miembro con protección ON)
+        // 2. CASO: ELIMINAN A ALGUIEN (REMOVE)
         if (action === 'remove' && author !== metadata.owner && author !== victim) {
-            // El bot elimina al que expulsó sin permiso
+            // Si el bot detecta que un admin expulsó a alguien sin ser el dueño
+            // El bot procede a eliminar al ejecutor por seguridad
             await sock.groupParticipantsUpdate(id, [author], 'remove');
             
             await sock.sendMessage(id, { 
-                text: `📻 @${author.split('@')[0]} ha osado expulsar a alguien sin mi consentimiento. ¡Fuera de mi vista! ♪`,
+                text: `RADIO ALASTOR: @${author.split('@')[0]} ha tomado decisiones sin consultar. Se le ha retirado del grupo por insubordinación.`,
                 mentions: [author]
             });
         }
     } catch (e) {
-        // Log de error simple para no tumbar el proceso
-        console.error("Error en frecuencia de proteccion:", e.message);
+        // Solo loguear el error sin detener el proceso
+        console.log("Error en protección de grupo:", e.message);
     }
 };
 
@@ -68,20 +65,20 @@ export default {
         if (command === 'proteccion') {
             if (args[0] === 'on') {
                 chat.proteccion = true;
-                m.reply('🎙️ SINTONIZANDO: Protección activada.');
+                m.reply('SINTONIZANDO: Proteccion de admins activada.');
             } else if (args[0] === 'off') {
                 chat.proteccion = false;
-                m.reply('📻 AVISO: Protección desactivada.');
+                m.reply('AVISO: Proteccion desactivada.');
             } else {
-                m.reply(`🎙️ Estado actual: ${chat.proteccion ? 'ON' : 'OFF'}\nUsa: ${usedPrefix + command} on/off`);
+                m.reply(`Estado: ${chat.proteccion ? 'ON' : 'OFF'}\nUsa: ${usedPrefix + command} on/off`);
             }
         }
 
         if (command === 'permiso') {
             let target = m.mentionedJid[0] || (m.quoted ? m.quoted.sender : null);
-            if (!target) return m.reply('📻 Menciona a quien permites degradar legalmente.');
+            if (!target) return m.reply('Menciona a quien permites degradar.');
             chat.permisoDemote = target;
-            m.reply(`✅ Permiso concedido para degradar a @${target.split('@')[0]}.`, { mentions: [target] });
+            m.reply(`Permiso concedido para degradar a @${target.split('@')[0]} una vez.`, { mentions: [target] });
         }
     }
 };
