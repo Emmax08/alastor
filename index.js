@@ -1,3 +1,4 @@
+
 import "./settings.js";
 import main from './main.js';
 import events from './commands/events.js';
@@ -15,8 +16,6 @@ import { smsg } from "./lib/message.js";
 import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
-// [ NUEVO ] Importación de Lavalink
-import { Manager } from "lavalink.js";
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -189,17 +188,13 @@ async function startBot() {
   });
   global.client = sock;
   sock.isInit = false;
-
-  // [ NUEVO ] Configuración de Lavalink en el socket
-  sock.lavalink = new Manager([{ host: "localhost", port: 2333, password: "youshallnotpass" }], {
-    send: (id, payload) => {} 
-  });
-
   sock.ev.on("creds.update", saveCreds);
 
+  // --- [ EVENTO DE PROTECCIÓN DE GRUPOS AÑADIDO ] ---
   sock.ev.on("group-participants.update", async (anu) => {
     await groupUpdateProtection(sock, anu);
   });
+  // --------------------------------------------------
 
   if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
     setTimeout(async () => {
@@ -263,9 +258,6 @@ async function startBot() {
       reconexion = 0;
       const userName = sock.user.name || "Desconocido";
       console.log(chalk.green.bold(`[ ✿ ]  Conectado a: ${userName}`));
-      
-      // [ NUEVO ] Inicializar Lavalink
-      sock.lavalink.init(sock.user.id);
     }
     if (isNewLogin) log.info("Nuevo dispositivo detectado");
     if (receivedPendingNotifications === true) {
