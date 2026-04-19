@@ -1,4 +1,3 @@
-
 import "./settings.js";
 import main from './main.js';
 import events from './commands/events.js';
