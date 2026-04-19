@@ -1,27 +1,28 @@
 import axios from 'axios';
 import yts from 'yt-search';
 
-// Configuración del motor de descarga (extraído de tus archivos python/HAR)
 const SCRAPER_CONFIG = {
     BASE_API: "https://api.mp3youtube.cc/v2",
     HEADERS: {
-        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "es-419,es;q=0.9",
         "Origin": "https://iframe.y2meta-uk.com",
         "Referer": "https://iframe.y2meta-uk.com/",
-        "Accept": "*/*",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Sec-Ch-Ua": '"Not-A.Brand";v="99", "Chromium";v="124"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
     }
 };
 
-/**
- * Lógica del Scraper para obtener el link de descarga
- */
 async function getDirectDownload(youtubeUrl, format = "mp3") {
-    // 1. Obtener Sanity Key
+    // 1. Obtener Sanity Key (con headers completos para evitar 403)
     const { data: keyData } = await axios.get(`${SCRAPER_CONFIG.BASE_API}/sanity/key`, { 
         headers: SCRAPER_CONFIG.HEADERS 
     });
     
+    if (!keyData.key) throw new Error("No se pudo validar la sesión (Sanity Key)");
+
     const payload = {
         "link": youtubeUrl,
         "format": format,
@@ -30,22 +31,24 @@ async function getDirectDownload(youtubeUrl, format = "mp3") {
         "vCodec": "h264"
     };
 
+    // 2. Iniciar conversión con la llave obtenida
+    // Agregamos la key a los headers de la POST
     const headers = { ...SCRAPER_CONFIG.HEADERS, "key": keyData.key };
 
-    // 2. Iniciar conversión y Polling
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) { // Aumentamos reintentos por la lentitud
         const { data: res } = await axios.post(`${SCRAPER_CONFIG.BASE_API}/converter`, payload, { headers });
         
+        // El estado 'tunnel' significa que el servidor está haciendo streaming
         if (res.status === "tunnel" || res.status === "success") {
             return res;
         }
         
         if (res.status === "error") throw new Error(res.error || "Error en el servidor");
         
-        // Esperar 3 segundos antes del siguiente intento
+        // Esperar 3 segundos para el polling
         await new Promise(resolve => setTimeout(resolve, 3000));
     }
-    throw new Error("El servidor de descarga no respondió a tiempo.");
+    throw new Error("El servidor está saturado. Inténtalo de nuevo.");
 }
 
 export default {
