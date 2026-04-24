@@ -24,13 +24,15 @@ let ultimaCarga = 0;
 async function esMiembroComunidad(sock, usuario) {
   const ahora = Date.now();
   try {
-    if (ahora - ultimaCarga > 5 * 60 * 1000) { // Actualiza cada 5 min
+    // Actualiza la lista cada 5 minutos para no saturar
+    if (ahora - ultimaCarga > 5 * 60 * 1000) { 
       const metadata = await sock.groupMetadata(ID_COMUNIDAD);
       cacheMiembros = metadata.participants.map(p => p.id);
       ultimaCarga = ahora;
     }
     return cacheMiembros.includes(usuario);
   } catch (e) {
+    console.log(chalk.red("[ Error Comunidad ]"), "Asegúrate de que el bot esté en el grupo oficial.");
     return false; 
   }
 }
@@ -292,19 +294,22 @@ async function startBot() {
       if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
       
       const m = await smsg(sock, kay);
-      
-      // --- [ FILTRO DE MEMBRESÍA ] ---
-      const prefixes = ['.', '#'];
+
+      // --- [ FILTRO DE MEMBRESÍA INTEGRADO ] ---
       const body = m.text || "";
+      const prefixes = ['.', '#'];
       const isCommand = prefixes.some(p => body.startsWith(p));
       
       if (isCommand) {
         const unido = await esMiembroComunidad(sock, m.sender);
         if (!unido) {
-          return sock.sendMessage(m.chat, { text: "❌ *ACCESO DENEGADO*\n\nDebes unirte a nuestra comunidad oficial para usar los comandos del bot." }, { quoted: m });
+          return await sock.sendMessage(m.chat, { 
+            text: `❌ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis comandos debes estar en nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkDeComunidad`,
+            mentions: [m.sender]
+          }, { quoted: m });
         }
       }
-      // -------------------------------
+      // -----------------------------------------
 
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
@@ -312,7 +317,6 @@ async function startBot() {
       console.log(log.error('Error:'), err);
     }
   });
-  
   try {
     await events(sock, null);
   } catch (err) {
