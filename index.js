@@ -16,41 +16,29 @@ import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
 
-// --- [ CONFIGURACIÓN DE ACCESO ] ---
+// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
 const ID_COMUNIDAD = '120363421393028091@g.us'; 
 
-async function esMiembroComunidad(sock, usuario) {
+// Función para verificar si el usuario ya está registrado en la DB o está en el grupo
+async function verificarAcceso(sock, m) {
+  const usuario = m.sender;
+  
+  // 1. Si es el Owner (tú), acceso total
+  if (m.fromMe || usuario.includes('5219541295521')) return true;
+
+  // 2. Intentar verificar por metadata (método rápido)
   try {
-    // 1. Intentar obtener la metadata fresca del grupo
-    const groupMetadata = await sock.groupMetadata(ID_COMUNIDAD);
-    const participantes = groupMetadata.participants;
-    
-    // 2. Verificar si el ID del usuario existe en los participantes
-    const esMiembro = participantes.some(p => p.id === usuario);
-    
-    if (esMiembro) return true;
-
-    // 3. SEGUNDO INTENTO: Si no aparece, puede ser por delay de sincronización.
-    // Consultamos específicamente el perfil del usuario en el contexto del grupo.
-    const [idReal] = await sock.onWhatsApp(usuario);
-    if (idReal && idReal.exists) {
-        // Forzamos un fetch de los participantes actuales de nuevo
-        const update = await sock.groupFetchAllParticipating();
-        const infoGrupo = update[ID_COMUNIDAD];
-        if (infoGrupo) {
-            return infoGrupo.participants.some(p => p.id === usuario);
-        }
-    }
-
-    return false;
+    const metadata = await sock.groupMetadata(ID_COMUNIDAD);
+    const existe = metadata.participants.some(p => p.id === usuario);
+    if (existe) return true;
   } catch (e) {
-    // Si el bot no puede leer el grupo, dejamos pasar para no bloquear a todos
-    console.log(chalk.redBright(`[!] Error crítico verificando comunidad: ${e.message}`));
+    // Si falla la lectura del grupo, permitimos para no bloquear el bot por error de red
+    console.log(chalk.red("[!] Error leyendo comunidad, saltando filtro..."));
     return true; 
   }
-}
 
-// -------------------------------------------
+  return false;
+}
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -310,29 +298,26 @@ async function startBot() {
       const m = await smsg(sock, kay);
       if (!m || m.key.fromMe) return;
 
-      // --- [ FILTRO DE ACCESO ] ---
+      // --- [ SISTEMA DE ACCESO COMUNITARIO ] ---
       const body = (m.text || "").toLowerCase();
-      const prefixes = ['.', '#', '/', '!', 'yuki']; 
+      const prefixes = ['.', '#', '/', '!', 'yuki'];
       const isCmd = prefixes.some(p => body.startsWith(p));
 
       if (isCmd) {
-        const esOwner = m.sender.includes('5219541295521') || m.fromMe; // Ajusta a tu número real
-        if (!esOwner) {
-            const unido = await esMiembroComunidad(sock, m.sender);
-            if (!unido) {
-                return await sock.sendMessage(m.chat, { 
-                  text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, el sistema no te detecta en la comunidad oficial.\n\n🔗 *Si ya estás dentro, envía un mensaje en el grupo de la comunidad y vuelve a intentar aquí.*\n\n*Link:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO`,
-                  mentions: [m.sender]
-                }, { quoted: m });
-            }
+        const tieneAcceso = await verificarAcceso(sock, m);
+        if (!tieneAcceso) {
+          return await sock.sendMessage(m.chat, { 
+            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar el bot debes estar unido a nuestra comunidad.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkAqui\n\n_Si ya estás unido, envía un mensaje dentro del grupo de la comunidad para que el bot te reconozca._`,
+            mentions: [m.sender]
+          }, { quoted: m });
         }
       }
-      // ----------------------------
+      // ------------------------------------------
 
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
     } catch (err) {
-      console.log(chalk.red('Error en index:'), err);
+      console.log(chalk.red('Error:'), err);
     }
   });
 
