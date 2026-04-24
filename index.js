@@ -307,7 +307,7 @@ async function startBot() {
         const tieneAcceso = await verificarAcceso(sock, m);
         if (!tieneAcceso) {
           return await sock.sendMessage(m.chat, { 
-            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar el bot debes estar unido a nuestra comunidad.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkAqui\n\n_Si ya estás unido, envía un mensaje dentro del grupo de la comunidad para que el bot te reconozca._`,
+            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar el bot debes estar unido a nuestra comunidad.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XOn\n_/Si ya estás unido, envía un mensaje dentro del grupo de la comunidad para que el bot te reconozca._`,
             mentions: [m.sender]
           }, { quoted: m });
         }
