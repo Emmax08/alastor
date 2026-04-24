@@ -1,36 +1,39 @@
-// --- CONFIGURACIÓN FUERA DEL EXPORT ---
-const ID_COMUNIDAD = '120363421393028091@g.us'; 
-let cacheMiembros = [];
-let ultimaCarga = 0;
-
-async function esMiembro(client, usuario) {
-    const ahora = Date.now();
+  sock.ev.on('messages.upsert', async (chatUpdate) => {
     try {
-        // Solo actualiza la lista si han pasado más de 5 minutos
-        if (ahora - ultimaCarga > 5 * 60 * 1000) {
-            const metadata = await client.groupMetadata(ID_COMUNIDAD);
-            cacheMiembros = metadata.participants.map(p => p.id);
-            ultimaCarga = ahora;
-        }
-        return cacheMiembros.includes(usuario);
-    } catch (e) {
-        console.error("Error validando grupo:", e);
-        return false;
-    }
-}
+      const kay = chatUpdate.messages[0];
+      if (!kay?.message) return;
+      if (kay.key?.remoteJid === 'status@broadcast') return;
+      kay.message = Object.keys(kay.message)[0] === 'ephemeralMessage' ? kay.message.ephemeralMessage.message : kay.message;
+      if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
+      
+      const m = await smsg(sock, kay);
 
-export default {
-    command: ['test', 'verificar'],
-    category: 'tools',
-    run: async (client, m, args) => {
-        // 1. Validar membresía
-        const unido = await esMiembro(client, m.sender);
-        
-        if (!unido) {
-            return m.reply(`❌ *ACCESO DENEGADO*\n\nPara usar este comando debes estar en la comunidad oficial.\n\n🔗 *Link:* https://chat.whatsapp.com/TuLinkReal`);
-        }
+      // --- [ FILTRO DE MEMBRESÍA MEJORADO ] ---
+      const bodyText = m.text || "";
+      // Agregamos '/' a los prefijos para que detecte '/p'
+      const prefixes = ['.', '#', '/']; 
+      const startsWithPrefix = prefixes.some(p => bodyText.startsWith(p));
 
-        // 2. Si es miembro, responde esto:
-        await m.reply('✅ *¡ACCESO CONCEDIDO!* Eres parte de la comunidad y puedes usar mis comandos.');
+      if (startsWithPrefix) {
+        try {
+          const esUsuarioValido = await verificarMembresia(sock, m.sender);
+          
+          if (!esUsuarioValido) {
+            return await sock.sendMessage(m.chat, { 
+              text: `❌ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis comandos debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkAqui`,
+              mentions: [m.sender]
+            }, { quoted: m });
+          }
+        } catch (e) {
+          // Si falla la verificación por error de red o ID, dejamos que el bot responda normalmente
+          console.log("Error silencioso en membresía, permitiendo comando...");
+        }
+      }
+      // -----------------------------------------
+
+      msgQueue.push(main(sock, m, chatUpdate));
+      drainQueue();
+    } catch (err) {
+      console.log(log.error('Error en upsert:'), err);
     }
-}
+  });
