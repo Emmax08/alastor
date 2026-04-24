@@ -19,25 +19,22 @@ import { exec } from "child_process";
 // --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
 const ID_COMUNIDAD = '120363421393028091@g.us'; 
 
-// Función para verificar si el usuario ya está registrado en la DB o está en el grupo
-async function verificarAcceso(sock, m) {
-  const usuario = m.sender;
-  
-  // 1. Si es el Owner (tú), acceso total
-  if (m.fromMe || usuario.includes('5219541295521')) return true;
+async function verificarMembresiaSilenciosa(sock, usuario) {
+  // El owner y el bot siempre tienen acceso
+  if (usuario.includes('5219541295521') || usuario === sock.user.id) return true;
 
-  // 2. Intentar verificar por metadata (método rápido)
   try {
+    // Forzamos a Baileys a obtener la lista de participantes de la comunidad
     const metadata = await sock.groupMetadata(ID_COMUNIDAD);
-    const existe = metadata.participants.some(p => p.id === usuario);
-    if (existe) return true;
+    const participantes = metadata.participants.map(p => p.id);
+    
+    // Si el ID del usuario está en la lista de la comunidad, tiene permiso
+    return participantes.includes(usuario);
   } catch (e) {
-    // Si falla la lectura del grupo, permitimos para no bloquear el bot por error de red
-    console.log(chalk.red("[!] Error leyendo comunidad, saltando filtro..."));
+    // Si hay un error de red o de Baileys, permitimos el comando para no dejar al bot inútil
+    console.log(chalk.red(`[!] Error al verificar comunidad: ${e.message}`));
     return true; 
   }
-
-  return false;
 }
 
 const log = {
@@ -298,16 +295,18 @@ async function startBot() {
       const m = await smsg(sock, kay);
       if (!m || m.key.fromMe) return;
 
-      // --- [ SISTEMA DE ACCESO COMUNITARIO ] ---
+      // --- [ FILTRO DE COMUNIDAD AUTOMÁTICO ] ---
       const body = (m.text || "").toLowerCase();
       const prefixes = ['.', '#', '/', '!', 'yuki'];
       const isCmd = prefixes.some(p => body.startsWith(p));
 
       if (isCmd) {
-        const tieneAcceso = await verificarAcceso(sock, m);
-        if (!tieneAcceso) {
+        // Verificamos si el usuario ya es parte del grupo comunidad
+        const estaUnido = await verificarMembresiaSilenciosa(sock, m.sender);
+        
+        if (!estaUnido) {
           return await sock.sendMessage(m.chat, { 
-            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar el bot debes estar unido a nuestra comunidad.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XOn\n_/Si ya estás unido, envía un mensaje dentro del grupo de la comunidad para que el bot te reconozca._`,
+            text: `⚠️ *REGISTRO REQUERIDO*\n\nHola @${m.sender.split('@')[0]}, para usar mis funciones solo debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO\n\n_Una vez te unas, el bot te reconocerá automáticamente._`,
             mentions: [m.sender]
           }, { quoted: m });
         }
