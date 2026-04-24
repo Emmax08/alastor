@@ -303,7 +303,7 @@ async function startBot() {
         const miembro = await esMiembroComunidad(sock, m.sender);
         if (!miembro) {
           return await sock.sendMessage(m.chat, { 
-            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis funciones debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkAqui`,
+            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis funciones debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO`,
             mentions: [m.sender]
           }, { quoted: m });
         }
