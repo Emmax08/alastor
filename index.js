@@ -16,15 +16,15 @@ import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
 
-// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
+// --- [ LÓGICA DE RESTRICCIÓN POR GRUPO ] ---
 const ID_COMUNIDAD = '120363421393028091@g.us'; 
 let cacheMiembros = [];
 let ultimaCarga = 0;
 
-async function esMiembroComunidad(sock, usuario) {
+async function verificarMembresia(sock, usuario) {
   const ahora = Date.now();
   try {
-    // Actualiza la lista cada 5 minutos para no saturar
+    // Solo recarga la lista de miembros si han pasado 5 minutos
     if (ahora - ultimaCarga > 5 * 60 * 1000) { 
       const metadata = await sock.groupMetadata(ID_COMUNIDAD);
       cacheMiembros = metadata.participants.map(p => p.id);
@@ -32,11 +32,12 @@ async function esMiembroComunidad(sock, usuario) {
     }
     return cacheMiembros.includes(usuario);
   } catch (e) {
-    console.log(chalk.red("[ Error Comunidad ]"), "Asegúrate de que el bot esté en el grupo oficial.");
-    return false; 
+    // Si hay error (ej. el bot no está en el grupo), permitimos el uso para no romper el bot
+    console.log(chalk.red.bold(`[ ERROR COMUNIDAD ]`), "No se pudo verificar el grupo. Revisa si el bot está dentro.");
+    return true; 
   }
 }
-// --------------------------------------
+// -------------------------------------------
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -295,21 +296,23 @@ async function startBot() {
       
       const m = await smsg(sock, kay);
 
-      // --- [ FILTRO DE MEMBRESÍA INTEGRADO ] ---
-      const body = m.text || "";
+      // --- [ INICIO VALIDACIÓN OBLIGATORIA ] ---
       const prefixes = ['.', '#'];
-      const isCommand = prefixes.some(p => body.startsWith(p));
-      
-      if (isCommand) {
-        const unido = await esMiembroComunidad(sock, m.sender);
-        if (!unido) {
+      const bodyText = m.text || "";
+      const startsWithPrefix = prefixes.some(p => bodyText.startsWith(p));
+
+      if (startsWithPrefix) {
+        const esUsuarioValido = await verificarMembresia(sock, m.sender);
+        
+        if (!esUsuarioValido) {
+          // Si el usuario no está en el grupo, enviamos aviso y CORTAMOS el proceso
           return await sock.sendMessage(m.chat, { 
-            text: `❌ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis comandos debes estar en nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkDeComunidad`,
+            text: `❌ *ACCESO RESTRINGIDO*\n\nHola @${m.sender.split('@')[0]}, para usar mis comandos debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/TuLinkAqui`,
             mentions: [m.sender]
           }, { quoted: m });
         }
       }
-      // -----------------------------------------
+      // --- [ FIN VALIDACIÓN OBLIGATORIA ] ---
 
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
