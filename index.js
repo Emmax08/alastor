@@ -321,7 +321,7 @@ async function startBot() {
             const unido = await esMiembroComunidad(sock, m.sender);
             if (!unido) {
                 return await sock.sendMessage(m.chat, { 
-                  text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, el sistema no te detecta en la comunidad oficial.\n\n🔗 *Si ya estás dentro, envía un mensaje en el grupo de la comunidad y vuelve a intentar aquí.*\n\n*Link:* https://chat.whatsapp.com/TuLinkAqui`,
+                  text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, el sistema no te detecta en la comunidad oficial.\n\n🔗 *Si ya estás dentro, envía un mensaje en el grupo de la comunidad y vuelve a intentar aquí.*\n\n*Link:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO`,
                   mentions: [m.sender]
                 }, { quoted: m });
             }
