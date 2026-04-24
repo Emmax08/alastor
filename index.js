@@ -16,7 +16,7 @@ import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
 
-// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
+// --- [ LÓGICA DE MEMBRESÍA REFORZADA ] ---
 const ID_COMUNIDAD = '120363421393028091@g.us'; 
 let cacheMiembros = [];
 let ultimaCarga = 0;
@@ -24,17 +24,31 @@ let ultimaCarga = 0;
 async function esMiembroComunidad(sock, usuario) {
   const ahora = Date.now();
   try {
-    if (ahora - ultimaCarga > 5 * 60 * 1000) { 
-      const metadata = await sock.groupMetadata(ID_COMUNIDAD);
-      cacheMiembros = metadata.participants.map(p => p.id);
-      ultimaCarga = ahora;
+    // 1. Carga inicial o actualización cada 5 minutos
+    if (cacheMiembros.length === 0 || (ahora - ultimaCarga > 5 * 60 * 1000)) { 
+      const metadata = await sock.groupMetadata(ID_COMUNIDAD).catch(() => null);
+      if (metadata) {
+        cacheMiembros = metadata.participants.map(p => p.id);
+        ultimaCarga = ahora;
+      }
     }
+
+    // 2. [ SOLUCIÓN AL BUG ] Si no está en caché, forzamos consulta en tiempo real
+    if (!cacheMiembros.includes(usuario)) {
+      const freshMetadata = await sock.groupMetadata(ID_COMUNIDAD).catch(() => null);
+      if (freshMetadata) {
+        cacheMiembros = freshMetadata.participants.map(p => p.id);
+        return cacheMiembros.includes(usuario);
+      }
+    }
+
     return cacheMiembros.includes(usuario);
   } catch (e) {
-    // Si hay error al leer el grupo, dejamos pasar por precaución
+    console.log(chalk.yellow("[ Membresía ] Error al validar, permitiendo acceso por seguridad..."));
     return true; 
   }
 }
+// -------------------------------------------
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -292,28 +306,28 @@ async function startBot() {
       if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
       
       const m = await smsg(sock, kay);
-      if (m.key.fromMe) return; // Ignorar mis propios mensajes
+      if (!m || m.key.fromMe) return;
 
-      // --- [ FILTRO OBLIGATORIO ] ---
-      const body = m.text || "";
+      // --- [ FILTRO DE ACCESO MEJORADO ] ---
+      const body = (m.text || "").toLowerCase();
       const prefixes = ['.', '#', '/', '!', 'yuki']; 
-      const isCmd = prefixes.some(p => body.toLowerCase().startsWith(p));
+      const isCommand = prefixes.some(p => body.startsWith(p));
 
-      if (isCmd) {
-        const miembro = await esMiembroComunidad(sock, m.sender);
-        if (!miembro) {
+      if (isCommand) {
+        const permitido = await esMiembroComunidad(sock, m.sender);
+        if (!permitido) {
           return await sock.sendMessage(m.chat, { 
-            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, para usar mis funciones debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO`,
+            text: `⚠️ *ACCESO DENEGADO*\n\nHola @${m.sender.split('@')[0]}, el sistema no te detecta en la comunidad oficial.\n\n🔗 *Si ya estás dentro, ignora este mensaje y vuelve a intentar el comando.*\n\n*Link:* https://chat.whatsapp.com/TuLinkAqui`,
             mentions: [m.sender]
           }, { quoted: m });
         }
       }
-      // -------------------------------
+      // ----------------------------------------
 
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
     } catch (err) {
-      console.log(log.error('Error:'), err);
+      console.log(chalk.red('Error en mensajes:'), err);
     }
   });
 
