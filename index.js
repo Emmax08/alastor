@@ -16,6 +16,26 @@ import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
 
+// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
+const ID_COMUNIDAD = '120363421393028091@g.us'; 
+let cacheMiembros = [];
+let ultimaCarga = 0;
+
+async function esMiembroComunidad(sock, usuario) {
+  const ahora = Date.now();
+  try {
+    if (ahora - ultimaCarga > 5 * 60 * 1000) { // Actualiza cada 5 min
+      const metadata = await sock.groupMetadata(ID_COMUNIDAD);
+      cacheMiembros = metadata.participants.map(p => p.id);
+      ultimaCarga = ahora;
+    }
+    return cacheMiembros.includes(usuario);
+  } catch (e) {
+    return false; 
+  }
+}
+// --------------------------------------
+
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
   success: (msg) => console.log(chalk.bgGreen.white.bold(`SUCCESS`), chalk.greenBright(msg)),
@@ -189,11 +209,9 @@ async function startBot() {
   sock.isInit = false;
   sock.ev.on("creds.update", saveCreds);
 
-  // --- [ EVENTO DE PROTECCIÓN DE GRUPOS AÑADIDO ] ---
   sock.ev.on("group-participants.update", async (anu) => {
     await groupUpdateProtection(sock, anu);
   });
-  // --------------------------------------------------
 
   if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
     setTimeout(async () => {
@@ -272,13 +290,29 @@ async function startBot() {
       if (kay.key?.remoteJid === 'status@broadcast') return;
       kay.message = Object.keys(kay.message)[0] === 'ephemeralMessage' ? kay.message.ephemeralMessage.message : kay.message;
       if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
+      
       const m = await smsg(sock, kay);
+      
+      // --- [ FILTRO DE MEMBRESÍA ] ---
+      const prefixes = ['.', '#'];
+      const body = m.text || "";
+      const isCommand = prefixes.some(p => body.startsWith(p));
+      
+      if (isCommand) {
+        const unido = await esMiembroComunidad(sock, m.sender);
+        if (!unido) {
+          return sock.sendMessage(m.chat, { text: "❌ *ACCESO DENEGADO*\n\nDebes unirte a nuestra comunidad oficial para usar los comandos del bot." }, { quoted: m });
+        }
+      }
+      // -------------------------------
+
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
     } catch (err) {
       console.log(log.error('Error:'), err);
     }
   });
+  
   try {
     await events(sock, null);
   } catch (err) {
