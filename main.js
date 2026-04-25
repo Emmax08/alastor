@@ -12,26 +12,16 @@ import { getGroupAdmins } from './lib/message.js';
 
 seeCommands();
 
-// --- [ CONFIGURACIÓN DE ACCESO A COMUNIDAD ] ---
-const ID_COMUNIDAD = '120363421393028091@g.us'; 
+// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
+const COMMUNITY_JID = '120363421393028091@g.us';
+const CACHE_INTERVAL = 15 * 60 * 1000; // 15 minutos en milisegundos
 
-async function verificarComunidad(client, sender) {
-  try {
-    // Si eres tú (Owner), acceso total inmediato
-    const misNumeros = ['5219541295521']; // Agrega aquí otros números de owner si tienes
-    if (misNumeros.some(num => sender.includes(num))) return true;
-
-    // Obtenemos la lista de participantes de la comunidad
-    const metadata = await client.groupMetadata(ID_COMUNIDAD);
-    const esMiembro = metadata.participants.some(p => p.id === sender);
-    return esMiembro;
-  } catch (e) {
-    // Si hay error leyendo el grupo (ej. lag de red), dejamos pasar para no romper el bot
-    console.log(chalk.red(`[!] Error verif. comunidad: ${e.message}`));
-    return true; 
-  }
-}
-// -----------------------------------------------
+// Inicializar caché global para compartir entre el principal y los sub-bots
+global.communityCache = global.communityCache || {
+  participants: [],
+  lastUpdate: 0,
+  inviteCode: null
+};
 
 export default async (client, m) => {
   const sender = m.sender;
@@ -48,14 +38,37 @@ export default async (client, m) => {
   const users = chat.users[sender] || {}
   const pushname = m.pushName || 'Sin nombre';
 
+  const tipo = settings.type || 'Sub'; // Identificador del tipo de bot (Principal/Sub)
+
   // --- [ LÓGICA DE BOT PRINCIPAL (PRIMARY) ] ---
   const chatData = global.db.data.chats[from] || {};
   const consolePrimary = chatData.primaryBot; 
 
+  // Si existe un principal configurado en este chat y NO soy yo (este bot)
   if (consolePrimary && consolePrimary !== botJid) {
+    // Verificamos si es owner antes de silenciar, para que tú siempre tengas control
     const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
+    
+    // Si no es el dueño, el sub-bot se detiene aquí y no responde
     if (!isOwners) return; 
   }
+  // ----------------------------------------------
+
+  // --- [ ACTUALIZACIÓN DE METADATA DE LA COMUNIDAD (Solo el Principal) ] ---
+  // Solo el bot principal intentará hacer la petición a WhatsApp si pasaron 15 mins
+  if (tipo !== 'Sub' && (Date.now() - global.communityCache.lastUpdate > CACHE_INTERVAL)) {
+    try {
+      const communityMetadata = await client.groupMetadata(COMMUNITY_JID).catch(() => null);
+      if (communityMetadata) {
+        global.communityCache.participants = communityMetadata.participants.map(p => p.id);
+        global.communityCache.lastUpdate = Date.now();
+        global.communityCache.inviteCode = await client.groupInviteCode(COMMUNITY_JID).catch(() => null);
+      }
+    } catch (e) {
+      console.error("Error actualizando caché de comunidad:", e);
+    }
+  }
+  // -------------------------------------------------------------------------
   
   let groupMetadata = null
   let groupAdmins = []
@@ -69,6 +82,7 @@ export default async (client, m) => {
   const isAdmins = m.isGroup ? groupAdmins.some(p => p.phoneNumber === sender || p.jid === sender || p.id === sender || p.lid === sender ) : false
   const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
 
+  // --- [ CERRADURA DE APAGADO GLOBAL ] ---
   if (settings.globalDisabled && !isOwners) return;
 
   for (const name in global.plugins) {
@@ -87,10 +101,9 @@ export default async (client, m) => {
   if (!users.stats[today]) users.stats[today] = { msgs: 0, cmds: 0 };
   users.stats[today].msgs++;
   
-  const rawBotname = settings.namebot || 'Yuki';
-  const tipo = settings.type || 'Sub';
+  const rawBotname = settings.namebot || 'Alastor';
   const cleanBotname = rawBotname.replace(/[^a-zA-Z0-9\s]/g, '')
-  const namebot = cleanBotname || 'Yuki';
+  const namebot = cleanBotname || 'Alastor';
   const shortForms = [namebot.charAt(0), namebot.split(" ")[0], tipo.split(" ")[0], namebot.split(" ")[0].slice(0, 2), namebot.split(" ")[0].slice(0, 3)];
   const prefixes = shortForms.map(name => `${name}`);
   prefixes.unshift(namebot);
@@ -121,7 +134,7 @@ export default async (client, m) => {
           continue;
         }
       } catch (err) {
-        console.error(`Error en plugin.all -> ${name}`, err);
+        console.error(`Error en plugin.before -> ${name}`, err);
       }
     }
   }
@@ -132,18 +145,21 @@ export default async (client, m) => {
   let command = (args.shift() || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   let text = args.join(' ');
   if (!command) return;
-
-  // --- [ VERIFICACIÓN DE COMUNIDAD (ANTES DE EJECUTAR) ] ---
-  // No verificamos en el comando 'help' o 'menu' para que sepan cómo unirse
-  const publicCommands = ['help', 'menu', 'allmenu', 'infobot'];
-  if (!publicCommands.includes(command) && !isOwners) {
-    const unido = await verificarComunidad(client, sender);
-    if (!unido) {
-      return m.reply(`⚠️ *REGISTRO REQUERIDO*\n\nHola @${sender.split('@')[0]}, para usar el bot en cualquier grupo primero debes unirte a nuestra comunidad oficial.\n\n🔗 *Link:* https://chat.whatsapp.com/TuLinkAqui\n\n_Al unirte, el bot se activará para ti automáticamente._`, null, { mentions: [sender] });
-    }
-  }
-  // ---------------------------------------------------------
   
+  // --- [ RESTRICCIÓN DE USO POR COMUNIDAD ] ---
+  const isParticipant = global.communityCache.participants.includes(sender);
+  const isExempt = isOwners || ['unir', 'join', 'help', 'menu'].includes(command);
+
+  // Si no está en la comunidad, cortamos la ejecución aquí
+  if (!isParticipant && !isExempt) {
+    const inviteLink = global.communityCache.inviteCode 
+      ? `https://chat.whatsapp.com/${global.communityCache.inviteCode}` 
+      : `el enlace proporcionado por los administradores.`;
+
+    return m.reply(`⚠️ *¡ACCESO RESTRINGIDO!* ⚠️\n\nPara usar los comandos de *${namebot}*, debes estar unido a nuestra comunidad oficial.\n\n📌 *Únete aquí:* ${inviteLink}\n\n> Una vez estés dentro, ya podrás usar todas mis funciones.`);
+  }
+  // ----------------------------------------------
+
   if (m.message || !consolePrimary || consolePrimary === botJid) {
     console.log(chalk.bold.blue(`╭────────────────────────────···\n│ ${chalk.cyan('Bot')}: ${gradient('lime', 'green')(botJid)}\n│ ${chalk.bold.yellow('Fecha')}: ${gradient('orange', 'yellow')(moment().format('DD/MM/YY HH:mm:ss'))}\n│ ${chalk.bold.blueBright('Usuario')}: ${gradient('cyan', 'blue')(pushname)}\n│ ${chalk.bold.magentaBright('Remitente')}: ${gradient('deepskyblue', 'darkorchid')(sender)}\n${m.isGroup ? '│' + chalk.bold.green(' Grupo') + ': ' + gradient('green', 'lime')(groupName) : '│' + chalk.bold.green(' Privado') + ': ' + gradient('pink', 'magenta')('Chat Privado')}\n${'│' + chalk.bold.magenta(' ID') + ': ' + gradient('violet', 'midnightblue')(m.isGroup ? from : 'Chat Privado')}\n│ ${chalk.bold.cyanBright('Comando usado')}: ${chalk.gray(command ? command : 'No Command')}\n╰────────────────────────────···\n`));
   }
@@ -157,7 +173,7 @@ export default async (client, m) => {
     if (!isOwners && !allowedInPrivateForUsers.includes(command)) return;
   }
   if (chat?.isBanned && !(command === 'bot' && text === 'on') && !isOwners) {
-    await m.reply(`ꕥ El bot *${settings.botname}* está desactivado en este grupo.\n\n> ✎ Un *administrador* puede activarlo con el comando:\n> » *${usedPrefix}bot on*`);
+    await m.reply(`ꕥ El bot *${settings.botname || namebot}* está desactivado en este grupo.\n\n> ✎ Un *administrador* puede activarlo con el comando:\n> » *${usedPrefix}bot on*`);
     return;
   }
   if (m.text && user.banned && !isOwners) {
@@ -168,18 +184,21 @@ export default async (client, m) => {
   if (!users.stats) users.stats = {};
   if (!users.stats[today]) users.stats[today] = { msgs: 0, cmds: 0 }; 
   if (chat.adminonly && !isAdmins) return;
+  
   const cmdData = global.comandos.get(command);
   if (!cmdData) {
     if (settings.prefix === true) return;
     await client.readMessages([m.key]);
     return m.reply(`ꕤ El comando *${command}* no existe.\n✎ Usa *${usedPrefix}help* para ver la lista de comandos disponibles.`);
   }
+  
   if (cmdData.isOwner && !isOwners) {
     if (settings.prefix === true) return;
     return m.reply(`ꕤ El comando *${command}* no existe.\n✎ Usa *${usedPrefix}help* para ver la lista de comandos disponibles.`);
   }
   if (cmdData.isAdmin && !isAdmins) return client.reply(m.chat, mess.admin, m);
   if (cmdData.botAdmin && !isBotAdmins) return client.reply(m.chat, mess.botAdmin, m);
+  
   try {
     await client.readMessages([m.key]);
     user.usedcommands = (user.usedcommands || 0) + 1;
