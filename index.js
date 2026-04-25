@@ -189,11 +189,9 @@ async function startBot() {
   sock.isInit = false;
   sock.ev.on("creds.update", saveCreds);
 
-  // --- [ EVENTO DE PROTECCIÓN DE GRUPOS AÑADIDO ] ---
   sock.ev.on("group-participants.update", async (anu) => {
     await groupUpdateProtection(sock, anu);
   });
-  // --------------------------------------------------
 
   if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
     setTimeout(async () => {
@@ -272,13 +270,17 @@ async function startBot() {
       if (kay.key?.remoteJid === 'status@broadcast') return;
       kay.message = Object.keys(kay.message)[0] === 'ephemeralMessage' ? kay.message.ephemeralMessage.message : kay.message;
       if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
+      
       const m = await smsg(sock, kay);
+      if (!m || m.key.fromMe) return;
+
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
     } catch (err) {
-      console.log(log.error('Error:'), err);
+      console.log(chalk.red('Error en index.js:'), err);
     }
   });
+
   try {
     await events(sock, null);
   } catch (err) {
