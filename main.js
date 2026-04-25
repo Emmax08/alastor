@@ -12,6 +12,27 @@ import { getGroupAdmins } from './lib/message.js';
 
 seeCommands();
 
+// --- [ CONFIGURACIÓN DE ACCESO A COMUNIDAD ] ---
+const ID_COMUNIDAD = '120363421393028091@g.us'; 
+
+async function verificarComunidad(client, sender) {
+  try {
+    // Si eres tú (Owner), acceso total inmediato
+    const misNumeros = ['5219541295521']; // Agrega aquí otros números de owner si tienes
+    if (misNumeros.some(num => sender.includes(num))) return true;
+
+    // Obtenemos la lista de participantes de la comunidad
+    const metadata = await client.groupMetadata(ID_COMUNIDAD);
+    const esMiembro = metadata.participants.some(p => p.id === sender);
+    return esMiembro;
+  } catch (e) {
+    // Si hay error leyendo el grupo (ej. lag de red), dejamos pasar para no romper el bot
+    console.log(chalk.red(`[!] Error verif. comunidad: ${e.message}`));
+    return true; 
+  }
+}
+// -----------------------------------------------
+
 export default async (client, m) => {
   const sender = m.sender;
   let body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || m.message.videoMessage?.caption || m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply?.selectedRowId || m.message.templateButtonReplyMessage?.selectedId || '';
@@ -31,15 +52,10 @@ export default async (client, m) => {
   const chatData = global.db.data.chats[from] || {};
   const consolePrimary = chatData.primaryBot; 
 
-  // Si existe un principal configurado en este chat y NO soy yo (este bot)
   if (consolePrimary && consolePrimary !== botJid) {
-    // Verificamos si es owner antes de silenciar, para que tú siempre tengas control
     const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
-    
-    // Si no es el dueño, el sub-bot se detiene aquí y no responde
     if (!isOwners) return; 
   }
-  // ----------------------------------------------
   
   let groupMetadata = null
   let groupAdmins = []
@@ -53,7 +69,6 @@ export default async (client, m) => {
   const isAdmins = m.isGroup ? groupAdmins.some(p => p.phoneNumber === sender || p.jid === sender || p.id === sender || p.lid === sender ) : false
   const isOwners = [botJid, ...(settings.owner ? [settings.owner] : []), ...global.owner.map(num => num + '@s.whatsapp.net')].includes(sender);
 
-  // --- [ CERRADURA DE APAGADO GLOBAL ] ---
   if (settings.globalDisabled && !isOwners) return;
 
   for (const name in global.plugins) {
@@ -117,6 +132,17 @@ export default async (client, m) => {
   let command = (args.shift() || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   let text = args.join(' ');
   if (!command) return;
+
+  // --- [ VERIFICACIÓN DE COMUNIDAD (ANTES DE EJECUTAR) ] ---
+  // No verificamos en el comando 'help' o 'menu' para que sepan cómo unirse
+  const publicCommands = ['help', 'menu', 'allmenu', 'infobot'];
+  if (!publicCommands.includes(command) && !isOwners) {
+    const unido = await verificarComunidad(client, sender);
+    if (!unido) {
+      return m.reply(`⚠️ *REGISTRO REQUERIDO*\n\nHola @${sender.split('@')[0]}, para usar el bot en cualquier grupo primero debes unirte a nuestra comunidad oficial.\n\n🔗 *Link:* https://chat.whatsapp.com/TuLinkAqui\n\n_Al unirte, el bot se activará para ti automáticamente._`, null, { mentions: [sender] });
+    }
+  }
+  // ---------------------------------------------------------
   
   if (m.message || !consolePrimary || consolePrimary === botJid) {
     console.log(chalk.bold.blue(`╭────────────────────────────···\n│ ${chalk.cyan('Bot')}: ${gradient('lime', 'green')(botJid)}\n│ ${chalk.bold.yellow('Fecha')}: ${gradient('orange', 'yellow')(moment().format('DD/MM/YY HH:mm:ss'))}\n│ ${chalk.bold.blueBright('Usuario')}: ${gradient('cyan', 'blue')(pushname)}\n│ ${chalk.bold.magentaBright('Remitente')}: ${gradient('deepskyblue', 'darkorchid')(sender)}\n${m.isGroup ? '│' + chalk.bold.green(' Grupo') + ': ' + gradient('green', 'lime')(groupName) : '│' + chalk.bold.green(' Privado') + ': ' + gradient('pink', 'magenta')('Chat Privado')}\n${'│' + chalk.bold.magenta(' ID') + ': ' + gradient('violet', 'midnightblue')(m.isGroup ? from : 'Chat Privado')}\n│ ${chalk.bold.cyanBright('Comando usado')}: ${chalk.gray(command ? command : 'No Command')}\n╰────────────────────────────···\n`));
