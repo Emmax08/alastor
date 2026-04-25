@@ -16,27 +16,6 @@ import db from "./lib/system/database.js";
 import { startSubBot } from './lib/subs.js';
 import { exec } from "child_process";
 
-// --- [ CONFIGURACIÓN DE COMUNIDAD ] ---
-const ID_COMUNIDAD = '120363421393028091@g.us'; 
-
-async function verificarMembresiaSilenciosa(sock, usuario) {
-  // El owner y el bot siempre tienen acceso
-  if (usuario.includes('5219541295521') || usuario === sock.user.id) return true;
-
-  try {
-    // Forzamos a Baileys a obtener la lista de participantes de la comunidad
-    const metadata = await sock.groupMetadata(ID_COMUNIDAD);
-    const participantes = metadata.participants.map(p => p.id);
-    
-    // Si el ID del usuario está en la lista de la comunidad, tiene permiso
-    return participantes.includes(usuario);
-  } catch (e) {
-    // Si hay un error de red o de Baileys, permitimos el comando para no dejar al bot inútil
-    console.log(chalk.red(`[!] Error al verificar comunidad: ${e.message}`));
-    return true; 
-  }
-}
-
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
   success: (msg) => console.log(chalk.bgGreen.white.bold(`SUCCESS`), chalk.greenBright(msg)),
@@ -210,9 +189,11 @@ async function startBot() {
   sock.isInit = false;
   sock.ev.on("creds.update", saveCreds);
 
+  // --- [ EVENTO DE PROTECCIÓN DE GRUPOS AÑADIDO ] ---
   sock.ev.on("group-participants.update", async (anu) => {
     await groupUpdateProtection(sock, anu);
   });
+  // --------------------------------------------------
 
   if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
     setTimeout(async () => {
@@ -291,35 +272,13 @@ async function startBot() {
       if (kay.key?.remoteJid === 'status@broadcast') return;
       kay.message = Object.keys(kay.message)[0] === 'ephemeralMessage' ? kay.message.ephemeralMessage.message : kay.message;
       if (kay.key.fromMe && kay.key.id.startsWith('3EB0')) return;
-      
       const m = await smsg(sock, kay);
-      if (!m || m.key.fromMe) return;
-
-      // --- [ FILTRO DE COMUNIDAD AUTOMÁTICO ] ---
-      const body = (m.text || "").toLowerCase();
-      const prefixes = ['.', '#', '/', '!', 'yuki'];
-      const isCmd = prefixes.some(p => body.startsWith(p));
-
-      if (isCmd) {
-        // Verificamos si el usuario ya es parte del grupo comunidad
-        const estaUnido = await verificarMembresiaSilenciosa(sock, m.sender);
-        
-        if (!estaUnido) {
-          return await sock.sendMessage(m.chat, { 
-            text: `⚠️ *REGISTRO REQUERIDO*\n\nHola @${m.sender.split('@')[0]}, para usar mis funciones solo debes unirte a nuestra comunidad oficial.\n\n🔗 *Únete aquí:* https://chat.whatsapp.com/KQC4pmJF2IvHfVbvUZS2XO\n\n_Una vez te unas, el bot te reconocerá automáticamente._`,
-            mentions: [m.sender]
-          }, { quoted: m });
-        }
-      }
-      // ------------------------------------------
-
       msgQueue.push(main(sock, m, chatUpdate));
       drainQueue();
     } catch (err) {
-      console.log(chalk.red('Error:'), err);
+      console.log(log.error('Error:'), err);
     }
   });
-
   try {
     await events(sock, null);
   } catch (err) {
